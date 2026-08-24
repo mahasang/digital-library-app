@@ -1,10 +1,18 @@
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, radius } from '@/constants/theme';
 import { Card } from '@/components/ui/Card';
+import { getResearchStats } from '@/lib/research';
 
 export default function HomeScreen() {
+  const [stats, setStats] = useState({ research: 0, categories: 0, organizations: 0 });
+
+  useEffect(() => {
+    getResearchStats().then(setStats);
+  }, []);
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -27,9 +35,9 @@ export default function HomeScreen() {
         {/* Stats */}
         <View style={styles.statsRow}>
           {[
-            { label: 'ງານວິໄຈ', value: '—', icon: 'document-text-outline' },
-            { label: 'ຫມວດຫມູ່', value: '—', icon: 'folder-outline' },
-            { label: 'ຫນ່ວຍງານ', value: '—', icon: 'business-outline' },
+            { label: 'ງານວິໄຈ', value: stats.research.toString(), icon: 'document-text-outline' },
+            { label: 'ຫມວດຫມູ່', value: stats.categories.toString(), icon: 'folder-outline' },
+            { label: 'ຫນ່ວຍງານ', value: stats.organizations.toString(), icon: 'business-outline' },
           ].map((stat) => (
             <Card key={stat.label} style={styles.statCard}>
               <Ionicons name={stat.icon as any} size={20} color={colors.primary} />
