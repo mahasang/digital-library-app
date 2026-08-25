@@ -19,7 +19,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export default function AccountScreen() {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark, mode, setTheme } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
@@ -110,6 +110,30 @@ export default function AccountScreen() {
             <Text style={styles.menuText}>ປະຫວັດການອ່ານ</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
           </TouchableOpacity>
+          <View style={styles.divider} />
+          <View style={styles.menuItem}>
+            <Ionicons name="moon-outline" size={20} color={colors.primary} />
+            <Text style={styles.menuText}>ຮູບແບບສີ</Text>
+            <View style={styles.themeButtons}>
+              {(['light', 'system', 'dark'] as const).map((m) => (
+                <TouchableOpacity
+                  key={m}
+                  onPress={() => setTheme(m)}
+                  style={[
+                    styles.themeBtn,
+                    mode === m && { backgroundColor: colors.primary }
+                  ]}
+                >
+                  <Text style={[
+                    styles.themeBtnText,
+                    mode === m && { color: '#fff' }
+                  ]}>
+                    {m === 'light' ? '☀️' : m === 'dark' ? '🌙' : '⚙️'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         </View>
 
         <Button
@@ -202,6 +226,17 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     },
     menuText: { ...typography.body, color: colors.text.primary, flex: 1 },
     divider: { height: 1, backgroundColor: colors.border, marginHorizontal: spacing.md },
+    themeButtons: { flexDirection: 'row', gap: 6 },
+    themeBtn: {
+      width: 36, height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    themeBtnText: { fontSize: 16 },
     logoutBtn: { borderColor: colors.error },
   });
 }
