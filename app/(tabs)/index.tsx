@@ -4,18 +4,20 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { spacing, typography, radius } from '@/constants/theme';
+import { spacing, typography, radius, shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { Card } from '@/components/ui/Card';
-import { getResearchStats } from '@/lib/research';
+import { getResearchStats, getPublicResearch, ResearchItem } from '@/lib/research';
 
 export default function HomeScreen() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [stats, setStats] = useState({ research: 0, categories: 0, organizations: 0 });
+  const [latest, setLatest] = useState<ResearchItem[]>([]);
 
   useEffect(() => {
     getResearchStats().then(setStats);
+    getPublicResearch({ limit: 3 }).then(({ data }) => setLatest(data));
   }, []);
 
   return (
@@ -77,6 +79,39 @@ export default function HomeScreen() {
             </Card>
           ))}
         </View>
+
+        {/* งานวิจัยล่าสุด */}
+        {latest.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>ງານວິໄຈລ່າສຸດ</Text>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/research')}>
+                <Text style={styles.seeAll}>ເບິ່ງທັງໝົດ →</Text>
+              </TouchableOpacity>
+            </View>
+            {latest.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.latestCard}
+                onPress={() => router.push(`/research/${item.slug}`)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.latestIcon}>
+                  <Ionicons name="document-text" size={20} color={colors.primary} />
+                </View>
+                <View style={styles.latestContent}>
+                  <Text style={styles.latestTitle} numberOfLines={2}>
+                    {item.title_th}
+                  </Text>
+                  <Text style={styles.latestMeta}>
+                    {item.year} · {item.organizations?.name_th ?? ''}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -133,5 +168,36 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     statCard: { flex: 1, alignItems: 'center', gap: 4, padding: spacing.md },
     statValue: { ...typography.h2, color: colors.primary },
     statLabel: { ...typography.caption, color: colors.text.secondary },
+    section: {},
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.sm,
+    },
+    sectionTitle: { ...typography.h3, color: colors.text.primary },
+    seeAll: { ...typography.bodySmall, color: colors.primary },
+    latestCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      padding: spacing.md,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      marginBottom: spacing.sm,
+      ...shadows.sm,
+    },
+    latestIcon: {
+      width: 44, height: 44,
+      borderRadius: radius.md,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    latestContent: { flex: 1 },
+    latestTitle: { ...typography.label, color: colors.text.primary },
+    latestMeta: { ...typography.caption, color: colors.text.muted, marginTop: 2 },
   });
 }

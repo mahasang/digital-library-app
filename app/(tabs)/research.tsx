@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList,
   TextInput, TouchableOpacity,
@@ -18,9 +18,9 @@ export default function ResearchScreen() {
   const [items, setItems] = useState<ResearchItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [total, setTotal] = useState(0);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const load = useCallback(async (searchTerm = '') => {
     setLoading(true);
@@ -30,15 +30,32 @@ export default function ResearchScreen() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(search); }, [search, load]);
+  useEffect(() => { load(''); }, [load]);
+
+  useEffect(() => {
+    return () => clearTimeout(debounceRef.current);
+  }, []);
+
+  function handleSearchInput(text: string) {
+    setSearchInput(text);
+    // debounce 400ms — ค้นหาหลังหยุดพิมพ์
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      load(text);
+    }, 400);
+  }
+
+  function clearSearch() {
+    setSearchInput('');
+    clearTimeout(debounceRef.current);
+    load('');
+  }
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await load(search);
+    await load(searchInput);
     setRefreshing(false);
   };
-
-  const handleSearch = () => setSearch(searchInput);
 
   const renderItem = ({ item }: { item: ResearchItem }) => (
     <TouchableOpacity
@@ -46,27 +63,36 @@ export default function ResearchScreen() {
       onPress={() => router.push(`/research/${item.slug}`)}
       activeOpacity={0.7}
     >
-      {item.cover_image ? (
-        <Image source={{ uri: item.cover_image }} style={styles.cover} />
-      ) : (
-        <View style={[styles.cover, styles.coverPlaceholder]}>
-          <Ionicons name="document-text-outline" size={32} color={colors.text.muted} />
-        </View>
-      )}
+      {/* Cover / Icon */}
+      <View style={styles.coverArea}>
+        {item.cover_image ? (
+          <Image source={{ uri: item.cover_image }} style={styles.cover} />
+        ) : (
+          <View style={[styles.cover, styles.coverPlaceholder]}>
+            <Ionicons name="document-text" size={28} color={colors.primary} />
+          </View>
+        )}
+      </View>
+
+      {/* Content */}
       <View style={styles.cardContent}>
         <Text style={styles.title} numberOfLines={2}>{item.title_th}</Text>
         {item.title_en && (
           <Text style={styles.titleEn} numberOfLines={1}>{item.title_en}</Text>
         )}
-        <Text style={styles.org} numberOfLines={1}>
-          {item.organizations?.name_th ?? ''}
-        </Text>
+        {item.research_categories[0]?.categories?.name_th && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>
+              {item.research_categories[0].categories.name_th}
+            </Text>
+          </View>
+        )}
         <View style={styles.meta}>
           <Text style={styles.year}>{item.year}</Text>
           <View style={styles.stats}>
-            <Ionicons name="eye-outline" size={12} color={colors.text.muted} />
+            <Ionicons name="eye-outline" size={11} color={colors.text.muted} />
             <Text style={styles.statText}>{item.views}</Text>
-            <Ionicons name="download-outline" size={12} color={colors.text.muted} />
+            <Ionicons name="download-outline" size={11} color={colors.text.muted} />
             <Text style={styles.statText}>{item.downloads}</Text>
           </View>
         </View>
@@ -80,27 +106,22 @@ export default function ResearchScreen() {
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>ງານວິໄຈ</Text>
-        <View style={styles.searchRow}>
-          <View style={styles.searchBox}>
-            <Ionicons name="search-outline" size={18} color={colors.text.muted} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="ຄົ້ນຫາ..."
-              placeholderTextColor={colors.text.muted}
-              value={searchInput}
-              onChangeText={setSearchInput}
-              onSubmitEditing={handleSearch}
-              returnKeyType="search"
-            />
-            {searchInput.length > 0 && (
-              <TouchableOpacity onPress={() => { setSearchInput(''); setSearch(''); }}>
-                <Ionicons name="close-circle" size={18} color={colors.text.muted} />
-              </TouchableOpacity>
-            )}
-          </View>
-          <TouchableOpacity style={styles.searchBtn} onPress={handleSearch}>
-            <Text style={styles.searchBtnText}>ຄົ້ນຫາ</Text>
-          </TouchableOpacity>
+        <View style={styles.searchBar}>
+          <Ionicons name="search-outline" size={18} color={colors.text.muted} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="ຄົ້ນຫາງານວິໄຈ..."
+            placeholderTextColor={colors.text.muted}
+            value={searchInput}
+            onChangeText={handleSearchInput}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+          {searchInput.length > 0 && (
+            <TouchableOpacity onPress={clearSearch}>
+              <Ionicons name="close-circle" size={18} color={colors.text.muted} />
+            </TouchableOpacity>
+          )}
         </View>
         {total > 0 && (
           <Text style={styles.totalText}>ພົບ {total} ລາຍການ</Text>
@@ -146,50 +167,61 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       gap: spacing.sm,
     },
     headerTitle: { ...typography.h3, color: colors.text.primary },
-    searchRow: { flexDirection: 'row', gap: spacing.sm },
-    searchBox: {
-      flex: 1,
+    searchBar: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.background,
-      borderRadius: radius.md,
-      borderWidth: 1,
+      borderRadius: radius.full,
+      borderWidth: 1.5,
       borderColor: colors.border,
       paddingHorizontal: spacing.md,
-      height: 44,
+      height: 46,
       gap: spacing.sm,
     },
     searchInput: { flex: 1, ...typography.body, color: colors.text.primary },
-    searchBtn: {
-      backgroundColor: colors.primary,
-      borderRadius: radius.md,
-      paddingHorizontal: spacing.md,
-      height: 44,
-      justifyContent: 'center',
-    },
-    searchBtnText: { ...typography.label, color: '#fff' },
     totalText: { ...typography.caption, color: colors.text.secondary },
     list: { padding: spacing.md, gap: spacing.sm },
     card: {
       flexDirection: 'row',
       backgroundColor: colors.surface,
-      borderRadius: radius.lg,
+      borderRadius: radius.xl,
       borderWidth: 1,
       borderColor: colors.border,
       overflow: 'hidden',
       ...shadows.sm,
     },
-    cover: { width: 80, height: 110 },
+    coverArea: {
+      width: 90,
+    },
+    cover: { width: 90, height: 120 },
     coverPlaceholder: {
-      backgroundColor: colors.background,
+      backgroundColor: colors.primaryLight,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    cardContent: { flex: 1, padding: spacing.md, gap: 4 },
-    title: { ...typography.label, color: colors.text.primary },
+    cardContent: {
+      flex: 1,
+      padding: spacing.md,
+      gap: 4,
+      justifyContent: 'center',
+    },
+    title: { ...typography.label, color: colors.text.primary, lineHeight: 20 },
     titleEn: { ...typography.caption, color: colors.text.secondary },
-    org: { ...typography.caption, color: colors.primary },
-    meta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+    badge: {
+      alignSelf: 'flex-start',
+      backgroundColor: colors.primaryLight,
+      borderRadius: radius.full,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      marginTop: 2,
+    },
+    badgeText: { ...typography.caption, color: colors.primary },
+    meta: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 4,
+    },
     year: { ...typography.caption, color: colors.text.muted },
     stats: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     statText: { ...typography.caption, color: colors.text.muted },
