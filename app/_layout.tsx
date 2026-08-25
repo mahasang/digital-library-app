@@ -17,6 +17,7 @@ export default function RootLayout() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="research/[slug]" />
         <Stack.Screen name="research/[slug]/pdf" />
+        <Stack.Screen name="favorites" />
       </Stack>
     </ThemeProvider>
   );

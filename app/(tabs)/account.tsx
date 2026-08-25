@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Image } from 'react-native';
+import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, radius, shadows } from '@/constants/theme';
@@ -99,7 +100,10 @@ export default function AccountScreen() {
         )}
 
         <View style={styles.menuCard}>
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/favorites')}
+          >
             <Ionicons name="heart-outline" size={20} color={colors.primary} />
             <Text style={styles.menuText}>ລາຍການທີ່ມັກ</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />

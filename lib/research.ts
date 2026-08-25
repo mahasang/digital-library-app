@@ -29,7 +29,7 @@ export type ResearchItem = {
   }[];
 };
 
-const RESEARCH_SELECT = `
+export const RESEARCH_SELECT = `
   id, slug, title_th, title_en, year, abstract,
   cover_image, access_level, status, views, downloads, published_at,
   organizations ( name_th ),

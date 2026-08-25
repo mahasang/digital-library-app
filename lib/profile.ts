@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { RESEARCH_SELECT, ResearchItem } from './research';
 
 export type UserProfile = {
   id: string;
@@ -89,12 +90,20 @@ export async function addReadingHistory(slug: string): Promise<void> {
   await supabase.rpc('log_reading_history', { p_slug: slug });
 }
 
-export async function getFavoritesCount(): Promise<number> {
+// ดึงงานวิจัยเต็มรูปแบบที่ user กดถูกใจ เรียงตามเวลาที่กดถูกใจล่าสุดก่อน
+export async function getFavoriteResearch(): Promise<ResearchItem[]> {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return 0;
-  const { count } = await supabase
+  if (!user) return [];
+
+  const { data, error } = await supabase
     .from('favorites')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', user.id);
-  return count ?? 0;
+    .select(`created_at, research_items!inner ( ${RESEARCH_SELECT} )`)
+    .eq('user_id', user.id)
+    .eq('research_items.status', 'published')
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return [];
+  return data
+    .map((row) => row.research_items as unknown as ResearchItem)
+    .filter(Boolean);
 }
