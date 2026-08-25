@@ -1,16 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList,
-  TextInput, TouchableOpacity, ActivityIndicator,
+  TextInput, TouchableOpacity,
   Image, RefreshControl
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, radius, shadows } from '@/constants/theme';
+import { spacing, typography, radius, shadows } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { getPublicResearch, ResearchItem } from '@/lib/research';
+import { ResearchCardSkeleton } from '@/components/ui/Skeleton';
 
 export default function ResearchScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [items, setItems] = useState<ResearchItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -72,7 +76,7 @@ export default function ResearchScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>ງານວິໄຈ</Text>
@@ -104,8 +108,10 @@ export default function ResearchScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
+        <View style={styles.list}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <ResearchCardSkeleton key={i} />
+          ))}
         </View>
       ) : items.length === 0 ? (
         <View style={styles.center}>
@@ -127,65 +133,67 @@ export default function ResearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    gap: spacing.sm,
-  },
-  headerTitle: { ...typography.h3, color: colors.text.primary },
-  searchRow: { flexDirection: 'row', gap: spacing.sm },
-  searchBox: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    height: 44,
-    gap: spacing.sm,
-  },
-  searchInput: { flex: 1, ...typography.body, color: colors.text.primary },
-  searchBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    height: 44,
-    justifyContent: 'center',
-  },
-  searchBtnText: { ...typography.label, color: '#fff' },
-  totalText: { ...typography.caption, color: colors.text.secondary },
-  list: { padding: spacing.md, gap: spacing.sm },
-  card: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    ...shadows.sm,
-  },
-  cover: { width: 80, height: 110 },
-  coverPlaceholder: {
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardContent: { flex: 1, padding: spacing.md, gap: 4 },
-  title: { ...typography.label, color: colors.text.primary },
-  titleEn: { ...typography.caption, color: colors.text.secondary },
-  org: { ...typography.caption, color: colors.primary },
-  meta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-  year: { ...typography.caption, color: colors.text.muted },
-  stats: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  statText: { ...typography.caption, color: colors.text.muted },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
-  emptyText: { ...typography.body, color: colors.text.muted },
-});
+function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: {
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.xxl,
+      paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      gap: spacing.sm,
+    },
+    headerTitle: { ...typography.h3, color: colors.text.primary },
+    searchRow: { flexDirection: 'row', gap: spacing.sm },
+    searchBox: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.background,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: spacing.md,
+      height: 44,
+      gap: spacing.sm,
+    },
+    searchInput: { flex: 1, ...typography.body, color: colors.text.primary },
+    searchBtn: {
+      backgroundColor: colors.primary,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.md,
+      height: 44,
+      justifyContent: 'center',
+    },
+    searchBtnText: { ...typography.label, color: '#fff' },
+    totalText: { ...typography.caption, color: colors.text.secondary },
+    list: { padding: spacing.md, gap: spacing.sm },
+    card: {
+      flexDirection: 'row',
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+      ...shadows.sm,
+    },
+    cover: { width: 80, height: 110 },
+    coverPlaceholder: {
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cardContent: { flex: 1, padding: spacing.md, gap: 4 },
+    title: { ...typography.label, color: colors.text.primary },
+    titleEn: { ...typography.caption, color: colors.text.secondary },
+    org: { ...typography.caption, color: colors.primary },
+    meta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+    year: { ...typography.caption, color: colors.text.muted },
+    stats: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    statText: { ...typography.caption, color: colors.text.muted },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+    emptyText: { ...typography.body, color: colors.text.muted },
+  });
+}

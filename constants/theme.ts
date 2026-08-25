@@ -16,6 +16,24 @@ export const colors = {
   warning: '#f59e0b',
 };
 
+export const darkColors = {
+  background: '#0f172a',
+  surface: '#1e293b',
+  primary: '#3b82f6',
+  primaryLight: '#1e3a5f',
+  primaryDark: '#2563eb',
+  text: {
+    primary: '#f1f5f9',
+    secondary: '#94a3b8',
+    muted: '#64748b',
+    inverse: '#0f172a',
+  },
+  border: '#334155',
+  error: '#ef4444',
+  success: '#22c55e',
+  warning: '#f59e0b',
+};
+
 export const spacing = {
   xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48,
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   KeyboardAvoidingView, Platform, Alert
@@ -9,16 +9,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { colors, spacing, typography, radius } from '@/constants/theme';
+import { spacing, typography, radius } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function LoginScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   async function handleLogin() {
-    // Validate
     const newErrors: typeof errors = {};
     if (!email) newErrors.email = 'กรุณากรอกอีเมล';
     if (!password) newErrors.password = 'กรุณากรอกรหัสผ่าน';
@@ -47,13 +49,12 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo */}
         <View style={styles.logoArea}>
           <View style={styles.logoIcon}>
             <Ionicons name="library" size={36} color={colors.primary} />
@@ -62,7 +63,6 @@ export default function LoginScreen() {
           <Text style={styles.appNameLao}>ຫ້ອງສະໝຸດດິຈິຕອນ</Text>
         </View>
 
-        {/* Form */}
         <View style={styles.form}>
           <Text style={styles.title}>ເຂົ້າສູ່ລະບົບ</Text>
           <Text style={styles.subtitle}>ເຂົ້າສູ່ລະບົບເພື່ອເຂົ້າເຖິງງານວິໄຈ</Text>
@@ -105,33 +105,35 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xxl + spacing.lg,
-    paddingBottom: spacing.xl,
-  },
-  logoArea: { alignItems: 'center', marginBottom: spacing.xxl },
-  logoIcon: {
-    width: 80, height: 80,
-    borderRadius: radius.xl,
-    backgroundColor: colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  appName: { ...typography.h3, color: colors.primary },
-  appNameLao: { ...typography.bodySmall, color: colors.text.secondary, marginTop: 2 },
-  form: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  title: { ...typography.h2, color: colors.text.primary, marginBottom: spacing.xs },
-  subtitle: { ...typography.body, color: colors.text.secondary, marginBottom: spacing.lg },
-  loginButton: { marginTop: spacing.sm, marginBottom: spacing.sm },
-});
+function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    scroll: {
+      flexGrow: 1,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.xxl + spacing.lg,
+      paddingBottom: spacing.xl,
+    },
+    logoArea: { alignItems: 'center', marginBottom: spacing.xxl },
+    logoIcon: {
+      width: 80, height: 80,
+      borderRadius: radius.xl,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.md,
+    },
+    appName: { ...typography.h3, color: colors.primary },
+    appNameLao: { ...typography.bodySmall, color: colors.text.secondary, marginTop: 2 },
+    form: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.xl,
+      padding: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    title: { ...typography.h2, color: colors.text.primary, marginBottom: spacing.xs },
+    subtitle: { ...typography.body, color: colors.text.secondary, marginBottom: spacing.lg },
+    loginButton: { marginTop: spacing.sm, marginBottom: spacing.sm },
+  });
+}

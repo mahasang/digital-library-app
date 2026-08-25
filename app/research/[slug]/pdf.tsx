@@ -1,13 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography } from '@/constants/theme';
+import { spacing, typography } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { getResearchPdfUrl } from '@/lib/research';
 
 export default function PdfViewerScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -25,7 +28,7 @@ export default function PdfViewerScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -71,24 +74,26 @@ export default function PdfViewerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.md,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    gap: spacing.md,
-  },
-  backBtn: { padding: 4 },
-  headerTitle: { ...typography.h3, color: colors.text.primary },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
-  loadingText: { ...typography.body, color: colors.text.secondary },
-  errorText: { ...typography.body, color: colors.error },
-  backLink: { ...typography.label, color: colors.primary },
-  webview: { flex: 1 },
-});
+function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.xxl,
+      paddingBottom: spacing.md,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      gap: spacing.md,
+    },
+    backBtn: { padding: 4 },
+    headerTitle: { ...typography.h3, color: colors.text.primary },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+    loadingText: { ...typography.body, color: colors.text.secondary },
+    errorText: { ...typography.body, color: colors.error },
+    backLink: { ...typography.label, color: colors.primary },
+    webview: { flex: 1 },
+  });
+}

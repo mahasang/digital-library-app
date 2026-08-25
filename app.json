@@ -14,7 +14,7 @@
     "android": {
       "package": "la.org.digitallibrary.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#185ff2",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -34,9 +34,9 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#185ff2",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#0f172a"
           }
         }
       ],

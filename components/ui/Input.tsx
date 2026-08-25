@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, TextInput, Text, TouchableOpacity, StyleSheet, TextInputProps } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing, typography } from '@/constants/theme';
+import { radius, spacing, typography } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 interface InputProps extends TextInputProps {
   label: string;
@@ -10,6 +11,8 @@ interface InputProps extends TextInputProps {
 }
 
 export function Input({ label, error, secureToggle, ...props }: InputProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [showPassword, setShowPassword] = useState(false);
 
   return (
@@ -37,21 +40,23 @@ export function Input({ label, error, secureToggle, ...props }: InputProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { marginBottom: spacing.md },
-  label: { ...typography.label, color: colors.text.primary, marginBottom: spacing.xs },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    height: 52,
-  },
-  inputNormal: { borderColor: colors.border },
-  inputError: { borderColor: colors.error },
-  input: { flex: 1, ...typography.body, color: colors.text.primary },
-  eyeIcon: { padding: spacing.xs },
-  errorText: { ...typography.caption, color: colors.error, marginTop: 4 },
-});
+function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
+    container: { marginBottom: spacing.md },
+    label: { ...typography.label, color: colors.text.primary, marginBottom: spacing.xs },
+    inputWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1.5,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.md,
+      height: 52,
+    },
+    inputNormal: { borderColor: colors.border },
+    inputError: { borderColor: colors.error },
+    input: { flex: 1, ...typography.body, color: colors.text.primary },
+    eyeIcon: { padding: spacing.xs },
+    errorText: { ...typography.caption, color: colors.error, marginTop: 4 },
+  });
+}

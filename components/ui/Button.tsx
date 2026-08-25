@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, ViewStyle } from 'react-native';
-import { colors, radius, typography, spacing } from '@/constants/theme';
+import { radius, typography, spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 type Variant = 'primary' | 'outline' | 'ghost';
 
@@ -17,6 +18,8 @@ export function Button({
   onPress, title, variant = 'primary',
   loading = false, disabled = false, style
 }: ButtonProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const isDisabled = disabled || loading;
 
   return (
@@ -35,24 +38,26 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
-  base: {
-    height: 52,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  primary: { backgroundColor: colors.primary },
-  outline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-  },
-  ghost: { backgroundColor: 'transparent' },
-  disabled: { opacity: 0.5 },
-  text: { ...typography.label },
-  primaryText: { color: colors.text.inverse },
-  outlineText: { color: colors.primary },
-  ghostText: { color: colors.primary },
-});
+function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
+    base: {
+      height: 52,
+      borderRadius: radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.lg,
+    },
+    primary: { backgroundColor: colors.primary },
+    outline: {
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderColor: colors.primary,
+    },
+    ghost: { backgroundColor: 'transparent' },
+    disabled: { opacity: 0.5 },
+    text: { ...typography.label },
+    primaryText: { color: colors.text.inverse },
+    outlineText: { color: colors.primary },
+    ghostText: { color: colors.primary },
+  });
+}

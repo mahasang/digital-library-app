@@ -88,3 +88,13 @@ export async function toggleFavorite(researchId: string): Promise<boolean> {
 export async function addReadingHistory(slug: string): Promise<void> {
   await supabase.rpc('log_reading_history', { p_slug: slug });
 }
+
+export async function getFavoritesCount(): Promise<number> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return 0;
+  const { count } = await supabase
+    .from('favorites')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id);
+  return count ?? 0;
+}
