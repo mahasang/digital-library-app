@@ -1,1 +1,1 @@
-export { useAppTheme as useTheme } from './useAppTheme';
+export { useTheme } from '@/contexts/ThemeContext';
