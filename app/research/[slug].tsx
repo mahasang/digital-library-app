@@ -8,12 +8,14 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, radius } from '@/constants/theme';
 import { getResearchBySlug, ResearchItem } from '@/lib/research';
+import { getFavorites, toggleFavorite, addReadingHistory } from '@/lib/profile';
 import { Button } from '@/components/ui/Button';
 
 export default function ResearchDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const [item, setItem] = useState<ResearchItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     if (slug) {
@@ -23,6 +25,19 @@ export default function ResearchDetailScreen() {
       });
     }
   }, [slug]);
+
+  useEffect(() => {
+    if (item) {
+      getFavorites().then((favs) => setIsFavorite(favs.includes(item.id)));
+      addReadingHistory(item.slug);
+    }
+  }, [item]);
+
+  async function handleFavorite() {
+    if (!item) return;
+    const nowFav = await toggleFavorite(item.id);
+    setIsFavorite(nowFav);
+  }
 
   if (loading) {
     return (
@@ -63,6 +78,13 @@ export default function ResearchDetailScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>ລາຍລະອຽດ</Text>
+        <TouchableOpacity onPress={handleFavorite} style={styles.favBtn}>
+          <Ionicons
+            name={isFavorite ? 'heart' : 'heart-outline'}
+            size={24}
+            color={isFavorite ? colors.error : colors.text.secondary}
+          />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -158,6 +180,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: spacing.xs },
   headerTitle: { ...typography.h3, color: colors.text.primary, flex: 1 },
+  favBtn: { padding: 4 },
   cover: { width: '100%', height: 200 },
   coverPlaceholder: {
     width: '100%', height: 200,

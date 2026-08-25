@@ -1,58 +1,111 @@
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, radius } from '@/constants/theme';
-import { Card } from '@/components/ui/Card';
+import { colors, spacing, typography, radius, shadows } from '@/constants/theme';
 import { Button } from '@/components/ui/Button';
-import { supabase } from '@/lib/supabase';
 import { signOut } from '@/lib/auth';
+import { getMyProfile, UserProfile } from '@/lib/profile';
 import { useState, useEffect } from 'react';
 
+const ROLE_LABELS: Record<string, string> = {
+  guest: 'ຜູ້ຢ້ຽມຊົມ',
+  member: 'ສະມາຊິກ',
+  staff: 'ບຸກຄະລາກອນ',
+  librarian: 'ບັນນາຮັກ',
+  admin: 'ຜູ້ດູແລລະບົບ',
+  super_admin: 'ຜູ້ດູແລລະບົບສູງສຸດ',
+};
+
 export default function AccountScreen() {
-  const [email, setEmail] = useState<string | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setEmail(user?.email ?? null);
-    });
+    getMyProfile().then(setProfile);
   }, []);
 
   async function handleLogout() {
-    setLoading(true);
-    const { error } = await signOut();
-    setLoading(false);
-    if (error) {
-      Alert.alert('ອອກຈາກລະບົບບໍ່ສຳເລັດ', error.message);
-    }
-    // ไม่ต้อง router.replace เอง — root layout ฟัง onAuthStateChange
-    // แล้วสลับไปแสดง (auth) stack อัตโนมัติเมื่อ session หายไป
+    Alert.alert(
+      'ອອກຈາກລະບົບ',
+      'ທ່ານຕ້ອງການອອກຈາກລະບົບບໍ?',
+      [
+        { text: 'ຍົກເລີກ', style: 'cancel' },
+        {
+          text: 'ອອກຈາກລະບົບ',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            const { error } = await signOut();
+            setLoading(false);
+            if (error) Alert.alert('ຜິດພາດ', error.message);
+          },
+        },
+      ]
+    );
   }
+
+  const initials = profile?.full_name
+    ? profile.full_name.slice(0, 2).toUpperCase()
+    : profile?.email?.slice(0, 2).toUpperCase() ?? '??';
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
 
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>ບັນຊີ</Text>
+        <Text style={styles.headerTitle}>ບັນຊີຂອງຂ້ອຍ</Text>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
-        <Card style={styles.profileCard}>
+        <View style={styles.profileCard}>
           <View style={styles.avatar}>
-            <Ionicons name="person" size={28} color={colors.primary} />
+            <Text style={styles.avatarText}>{initials}</Text>
           </View>
-          <Text style={styles.email}>{email ?? '—'}</Text>
-        </Card>
+          <View style={styles.profileInfo}>
+            <Text style={styles.fullName}>
+              {profile?.full_name ?? 'ບໍ່ລະບຸຊື່'}
+            </Text>
+            <Text style={styles.email}>{profile?.email ?? '—'}</Text>
+            {profile?.role && (
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleText}>
+                  {ROLE_LABELS[profile.role] ?? profile.role}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {profile?.organization_name && (
+          <View style={styles.infoRow}>
+            <Ionicons name="business-outline" size={18} color={colors.primary} />
+            <Text style={styles.infoText}>{profile.organization_name}</Text>
+          </View>
+        )}
+
+        <View style={styles.menuCard}>
+          <TouchableOpacity style={styles.menuItem}>
+            <Ionicons name="heart-outline" size={20} color={colors.primary} />
+            <Text style={styles.menuText}>ລາຍການທີ່ມັກ</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          <TouchableOpacity style={styles.menuItem}>
+            <Ionicons name="time-outline" size={20} color={colors.primary} />
+            <Text style={styles.menuText}>ປະຫວັດການອ່ານ</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
+          </TouchableOpacity>
+        </View>
 
         <Button
           title="ອອກຈາກລະບົບ"
           onPress={handleLogout}
           loading={loading}
           variant="outline"
+          style={styles.logoutBtn}
         />
       </ScrollView>
     </View>
@@ -71,13 +124,63 @@ const styles = StyleSheet.create({
   },
   headerTitle: { ...typography.h3, color: colors.text.primary },
   scroll: { padding: spacing.lg, gap: spacing.md },
-  profileCard: { alignItems: 'center', gap: spacing.sm, padding: spacing.xl },
+  profileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.sm,
+  },
   avatar: {
-    width: 56, height: 56,
+    width: 64, height: 64,
     borderRadius: radius.full,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  email: { ...typography.body, color: colors.text.primary },
+  avatarText: { ...typography.h2, color: '#fff' },
+  profileInfo: { flex: 1, gap: 4 },
+  fullName: { ...typography.h3, color: colors.text.primary },
+  email: { ...typography.bodySmall, color: colors.text.secondary },
+  roleBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primaryLight,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    marginTop: 4,
+  },
+  roleText: { ...typography.caption, color: colors.primary },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  infoText: { ...typography.body, color: colors.text.secondary, flex: 1 },
+  menuCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    ...shadows.sm,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  menuText: { ...typography.body, color: colors.text.primary, flex: 1 },
+  divider: { height: 1, backgroundColor: colors.border, marginHorizontal: spacing.md },
+  logoutBtn: { borderColor: colors.error },
 });

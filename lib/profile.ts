@@ -1,0 +1,90 @@
+import { supabase } from './supabase';
+
+export type UserProfile = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  organization_name: string | null;
+  avatar_url: string | null;
+  role: string | null;
+};
+
+export async function getMyProfile(): Promise<UserProfile | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select(`
+      id, full_name, email,
+      organization_name, avatar_url
+    `)
+    .eq('id', user.id)
+    .single();
+
+  if (error || !data) return null;
+
+  // ผู้ใช้หนึ่งคนมีได้หลายบทบาท (ไม่มี unique constraint กันไว้) — เลือกบทบาทที่ rank สูงสุด
+  const { data: roleRows } = await supabase
+    .from('user_roles')
+    .select('roles ( name, rank )')
+    .eq('user_id', user.id);
+
+  type RoleRow = { name: string; rank: number };
+  const topRole = (roleRows ?? []).reduce<RoleRow | null>((top, row) => {
+    const r = row.roles as unknown as RoleRow | null;
+    if (!r) return top;
+    return !top || r.rank > top.rank ? r : top;
+  }, null);
+
+  return {
+    ...data,
+    email: user.email ?? null,
+    role: topRole?.name ?? 'member',
+  };
+}
+
+// Favorites
+export async function getFavorites(): Promise<string[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('favorites')
+    .select('research_id')
+    .eq('user_id', user.id);
+
+  if (error || !data) return [];
+  return data.map((f) => f.research_id as string);
+}
+
+export async function toggleFavorite(researchId: string): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { data: existing } = await supabase
+    .from('favorites')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('research_id', researchId)
+    .single();
+
+  if (existing) {
+    await supabase.from('favorites')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('research_id', researchId);
+    return false;
+  } else {
+    await supabase.from('favorites')
+      .insert({ user_id: user.id, research_id: researchId });
+    return true;
+  }
+}
+
+// Reading History — ใช้ RPC log_reading_history() แบบเดียวกับเว็บ Next.js
+// (reading_history ไม่มี unique constraint ต่อ user+research จึงบันทึกทุกครั้งที่เปิดอ่าน
+// ไม่ใช่ upsert แถวเดียว, และฟังก์ชันนี้ตรวจ published + auth.uid() ให้ในตัว)
+export async function addReadingHistory(slug: string): Promise<void> {
+  await supabase.rpc('log_reading_history', { p_slug: slug });
+}
