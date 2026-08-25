@@ -49,7 +49,15 @@ export default function PdfViewerScreen() {
         </View>
       ) : (
         <WebView
-          source={{ uri: pdfUrl }}
+          source={{
+            uri: `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(pdfUrl)}`,
+          }}
+          injectedJavaScript={`
+            // ซ่อนปุ่ม download ของ Google Docs Viewer
+            const style = document.createElement('style');
+            style.innerHTML = '.ndfHFb-c4YZDc-Wrql6b { display: none !important; }';
+            document.head.appendChild(style);
+          `}
           style={styles.webview}
           startInLoadingState
           renderLoading={() => (

@@ -22,7 +22,7 @@ export type ResearchItem = {
     } | null;
   }[];
   research_categories: {
-    categories: { slug: string; name: string } | null;
+    categories: { slug: string; name_th: string; name_en: string | null } | null;
   }[];
   research_keywords: {
     keywords: { keyword: string } | null;
@@ -34,7 +34,7 @@ const RESEARCH_SELECT = `
   cover_image, access_level, status, views, downloads, published_at,
   organizations ( name_th ),
   research_authors ( author_order, authors ( name, organization_name ) ),
-  research_categories ( categories ( slug, name ) ),
+  research_categories ( categories ( slug, name_th, name_en ) ),
   research_keywords ( keywords ( keyword ) )
 `;
 
@@ -65,6 +65,7 @@ export async function getPublicResearch(params: {
   }
 
   const { data, error, count } = await query;
+  console.log('research query result:', JSON.stringify({ data, error, count }));
   if (error) return { data: [], count: 0 };
   return { data: data as unknown as ResearchItem[], count: count ?? 0 };
 }
