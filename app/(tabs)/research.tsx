@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList,
-  TouchableOpacity, Image, ActivityIndicator
+  TouchableOpacity, Image, ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -10,6 +11,13 @@ import { spacing, typography, radius, shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { getPublicResearch, ResearchItem } from '@/lib/research';
 
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const NUM_COLUMNS = 3;
+const CARD_GAP = 8;
+const SIDE_PADDING = 12;
+const CARD_WIDTH = (SCREEN_WIDTH - SIDE_PADDING * 2 - CARD_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
+const COVER_HEIGHT = Math.round(CARD_WIDTH * 1.4);
+
 export default function ShelfScreen() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -17,7 +25,7 @@ export default function ShelfScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getPublicResearch({ limit: 20 }).then(({ data }) => {
+    getPublicResearch({ limit: 30 }).then(({ data }) => {
       setItems(data);
       setLoading(false);
     });
@@ -25,19 +33,27 @@ export default function ShelfScreen() {
 
   const renderItem = ({ item }: { item: ResearchItem }) => (
     <TouchableOpacity
-      style={styles.bookCard}
+      style={[styles.bookCard, { width: CARD_WIDTH }]}
       onPress={() => router.push(`/research/${item.slug}`)}
-      activeOpacity={0.7}
+      activeOpacity={0.75}
     >
       {item.cover_image ? (
-        <Image source={{ uri: item.cover_image }} style={styles.bookCover} />
+        <Image
+          source={{ uri: item.cover_image }}
+          style={[styles.bookCover, { height: COVER_HEIGHT }]}
+          resizeMode="cover"
+        />
       ) : (
-        <View style={[styles.bookCover, styles.bookPlaceholder]}>
-          <Ionicons name="document-text" size={36} color={colors.primary} />
+        <View style={[styles.bookCover, styles.bookPlaceholder, { height: COVER_HEIGHT }]}>
+          <Ionicons name="document-text" size={28} color={colors.primary} />
         </View>
       )}
-      <Text style={styles.bookTitle} numberOfLines={2}>{item.title_th}</Text>
-      <Text style={styles.bookYear}>{item.year}</Text>
+      <View style={styles.cardInfo}>
+        <Text style={styles.bookTitle} numberOfLines={2}>{item.title_th}</Text>
+        {item.year ? (
+          <Text style={styles.bookYear}>{item.year}</Text>
+        ) : null}
+      </View>
     </TouchableOpacity>
   );
 
@@ -53,18 +69,25 @@ export default function ShelfScreen() {
           <Ionicons name="search-outline" size={22} color={colors.text.primary} />
         </TouchableOpacity>
       </View>
+
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : items.length === 0 ? (
+        <View style={styles.center}>
+          <Ionicons name="library-outline" size={48} color={colors.text.muted} />
+          <Text style={styles.emptyText}>ບໍ່ພົບງານວິໄຈ</Text>
         </View>
       ) : (
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          numColumns={2}
+          numColumns={NUM_COLUMNS}
           contentContainerStyle={styles.grid}
           columnWrapperStyle={styles.row}
+          showsVerticalScrollIndicator={false}
         />
       )}
     </View>
@@ -87,34 +110,49 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     },
     headerTitle: { ...typography.h3, color: colors.text.primary },
     searchBtn: { padding: spacing.xs },
-    grid: { padding: spacing.md },
-    row: { gap: spacing.sm, marginBottom: spacing.sm },
+
+    grid: {
+      paddingHorizontal: SIDE_PADDING,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.xl,
+    },
+    row: {
+      gap: CARD_GAP,
+      marginBottom: CARD_GAP,
+    },
     bookCard: {
-      flex: 1,
       backgroundColor: colors.surface,
-      borderRadius: radius.lg,
+      borderRadius: radius.md,
       overflow: 'hidden',
       borderWidth: 1,
       borderColor: colors.border,
       ...shadows.sm,
     },
-    bookCover: { width: '100%', height: 180 },
+    bookCover: { width: '100%' },
     bookPlaceholder: {
       backgroundColor: colors.primaryLight,
       alignItems: 'center',
       justifyContent: 'center',
     },
+    cardInfo: {
+      padding: spacing.xs,
+      paddingBottom: 6,
+    },
     bookTitle: {
-      ...typography.label,
+      fontSize: 11,
+      fontWeight: '600',
       color: colors.text.primary,
-      padding: spacing.sm,
-      paddingBottom: 2,
+      lineHeight: 15,
     },
     bookYear: {
+      fontSize: 10,
+      color: colors.text.muted,
+      marginTop: 2,
+    },
+    emptyText: {
       ...typography.caption,
       color: colors.text.muted,
-      paddingHorizontal: spacing.sm,
-      paddingBottom: spacing.sm,
+      marginTop: spacing.md,
     },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   });
