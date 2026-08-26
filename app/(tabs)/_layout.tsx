@@ -31,14 +31,24 @@ export default function TabsLayout() {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
+          height: 65,
+          paddingBottom: 10,
+          paddingTop: 6,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
       }}
     >
       <Tabs.Screen
         name="index"
+        options={{
+          title: 'ຊັ້ນຫນັງສື',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="library-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="research"
         options={{
           title: 'ຫນ້າທຳອິດ',
           tabBarIcon: ({ color, size }) => (
@@ -47,20 +57,29 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="research"
+        name="favorites"
         options={{
-          title: 'ງານວິໄຈ',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search-outline" size={size} color={color} />
+          title: 'ລາຍການທີ່ມັກ',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'heart' : 'heart-outline'} size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="account"
         options={{
-          title: 'ບັນຊີ',
+          title: 'ຕັ້ງຄ່າ',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <Ionicons name="settings-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="contact"
+        options={{
+          title: 'ຕິດຕໍ່',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="call-outline" size={size} color={color} />
           ),
         }}
       />

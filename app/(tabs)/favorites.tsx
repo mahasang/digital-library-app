@@ -11,6 +11,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { getFavoriteResearch } from '@/lib/profile';
 import { ResearchItem } from '@/lib/research';
 import { ResearchCardSkeleton } from '@/components/ui/Skeleton';
+import { Button } from '@/components/ui/Button';
 
 export default function FavoritesScreen() {
   const { colors, isDark } = useTheme();
@@ -79,9 +80,6 @@ export default function FavoritesScreen() {
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>ລາຍການທີ່ມັກ</Text>
       </View>
 
@@ -92,9 +90,19 @@ export default function FavoritesScreen() {
           ))}
         </View>
       ) : items.length === 0 ? (
-        <View style={styles.center}>
-          <Ionicons name="heart-outline" size={48} color={colors.text.muted} />
-          <Text style={styles.emptyText}>ຍັງບໍ່ມີລາຍການທີ່ມັກ</Text>
+        <View style={styles.empty}>
+          <View style={styles.emptyIcon}>
+            <Ionicons name="heart-outline" size={40} color={colors.primary} />
+          </View>
+          <Text style={styles.emptyTitle}>ຍັງບໍ່ມີລາຍການທີ່ມັກ</Text>
+          <Text style={styles.emptyText}>
+            ກົດ ❤️ ໃນໜ້າລາຍລະອຽດງານວິໄຈ ເພື່ອບັນທຶກໄວ້ອ່ານພາຍຫຼັງ
+          </Text>
+          <Button
+            title="ຄົ້ນຫາງານວິໄຈ"
+            onPress={() => router.push('/(tabs)/research')}
+            style={styles.emptyBtn}
+          />
         </View>
       ) : (
         <FlatList
@@ -115,17 +123,13 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacing.md,
+      paddingHorizontal: spacing.lg,
       paddingTop: spacing.xxl,
       paddingBottom: spacing.md,
       backgroundColor: colors.surface,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
-      gap: spacing.md,
     },
-    backBtn: { padding: spacing.xs },
     headerTitle: { ...typography.h3, color: colors.text.primary },
     list: { padding: spacing.md, gap: spacing.sm },
     card: {
@@ -160,7 +164,28 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     year: { ...typography.caption, color: colors.text.muted },
     stats: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     statText: { ...typography.caption, color: colors.text.muted },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
-    emptyText: { ...typography.body, color: colors.text.muted },
+    empty: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      padding: spacing.xl,
+    },
+    emptyIcon: {
+      width: 80, height: 80,
+      borderRadius: radius.full,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.xs,
+    },
+    emptyTitle: { ...typography.h3, color: colors.text.primary },
+    emptyText: {
+      ...typography.bodySmall,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      marginBottom: spacing.sm,
+    },
+    emptyBtn: { minWidth: 200 },
   });
 }
