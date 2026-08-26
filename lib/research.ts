@@ -38,6 +38,15 @@ export const RESEARCH_SELECT = `
   research_keywords ( keywords ( keyword ) )
 `;
 
+// เหมือน RESEARCH_SELECT แต่ join research_categories/categories แบบ !inner —
+// จำเป็นสำหรับ .eq('research_categories.categories.slug', ...): ถ้าไม่ใช้ !inner
+// PostgREST จะแค่ทำให้ embedded resource ที่ไม่ตรง category เป็น null แต่ไม่กรองแถวนอกออก
+// (research_categories เป็นความสัมพันธ์ many จาก research_items จึงต้องระบุ !inner ทั้งสองชั้น)
+const RESEARCH_SELECT_BY_CATEGORY = RESEARCH_SELECT.replace(
+  'research_categories ( categories ( slug, name_th, name_en ) )',
+  'research_categories!inner ( categories!inner ( slug, name_th, name_en ) )'
+);
+
 export async function getPublicResearch(params: {
   search?: string;
   category?: string;
@@ -50,7 +59,7 @@ export async function getPublicResearch(params: {
 
   let query = supabase
     .from('research_items')
-    .select(RESEARCH_SELECT, { count: 'exact' })
+    .select(category ? RESEARCH_SELECT_BY_CATEGORY : RESEARCH_SELECT, { count: 'exact' })
     .eq('status', 'published')
     .in('access_level', ['public', 'read_only', 'metadata_only'])
     .order('published_at', { ascending: false })
@@ -65,7 +74,6 @@ export async function getPublicResearch(params: {
   }
 
   const { data, error, count } = await query;
-  console.log('research query result:', JSON.stringify({ data, error, count }));
   if (error) return { data: [], count: 0 };
   return { data: data as unknown as ResearchItem[], count: count ?? 0 };
 }

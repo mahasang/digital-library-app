@@ -100,7 +100,7 @@ export default function FavoritesScreen() {
           </Text>
           <Button
             title="ຄົ້ນຫາງານວິໄຈ"
-            onPress={() => router.push('/(tabs)/research')}
+            onPress={() => router.push('/search')}
             style={styles.emptyBtn}
           />
         </View>

@@ -41,18 +41,18 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'ຊັ້ນຫນັງສື',
+          title: 'ຫນ້າທຳອິດ',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="library-outline" size={size} color={color} />
+            <Ionicons name="home-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="research"
         options={{
-          title: 'ຫນ້າທຳອິດ',
+          title: 'ຄົ້ນຫາ',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name="search-outline" size={size} color={color} />
           ),
         }}
       />

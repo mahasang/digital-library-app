@@ -29,9 +29,12 @@ export default function HomeScreen() {
           <Text style={styles.greeting}>ສະບາຍດີ 👋</Text>
           <Text style={styles.headerTitle}>ຫ້ອງສະໝຸດດິຈິຕອນ</Text>
         </View>
-        <View style={styles.headerIcon}>
-          <Ionicons name="library" size={24} color={colors.primary} />
-        </View>
+        <TouchableOpacity
+          style={styles.headerIcon}
+          onPress={() => router.push('/search')}
+        >
+          <Ionicons name="search-outline" size={22} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -52,7 +55,7 @@ export default function HomeScreen() {
             </Text>
             <TouchableOpacity
               style={styles.heroBtn}
-              onPress={() => router.push('/(tabs)/research')}
+              onPress={() => router.push('/search')}
             >
               <Text style={styles.heroBtnText}>ຄົ້ນຫາງານວິໄຈ →</Text>
             </TouchableOpacity>
