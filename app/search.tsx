@@ -17,49 +17,79 @@ const NUM_COLUMNS = 3;
 const CARD_GAP = 8;
 const SIDE_PADDING = 12;
 const CARD_WIDTH = (SCREEN_WIDTH - SIDE_PADDING * 2 - CARD_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
-const COVER_HEIGHT = Math.round(CARD_WIDTH * 1.4); // อัตราส่วนปกหนังสือ
+const COVER_HEIGHT = Math.round(CARD_WIDTH * 1.4);
+const PAGE_SIZE = 20;
 
-/** แปลง พ.ศ → ค.ศ */
 function toAD(year: number) {
   return year > 2500 ? year - 543 : year;
 }
 
+type Category = { id: string; name_th: string; slug: string; count?: number };
+
 export default function SearchScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const flatListRef = useRef<FlatList>(null);
 
   const [searchInput, setSearchInput] = useState('');
   const [items, setItems] = useState<ResearchItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState<{ id: string; name_th: string; slug: string }[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // โหลดหมวดหมู่
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  // โหลด categories พร้อม count แต่ละหมวด
   useEffect(() => {
     supabase
       .from('categories')
       .select('id, name_th, slug')
       .eq('is_active', true)
       .order('sort_order')
-      .then(({ data }) => setCategories(data ?? []));
+      .then(async ({ data }) => {
+        if (!data) return;
+        // ดึง count แต่ละหมวดพร้อมกัน — ต้อง embed research_categories!inner เพื่อให้
+        // .eq('research_categories.categories.slug', ...) กรองแถวนอกได้จริง (เหมือน
+        // RESEARCH_SELECT_BY_CATEGORY ใน lib/research.ts) และกรอง access_level ให้ตรงกับ
+        // ที่ getPublicResearch ใช้แสดงผลจริง ไม่งั้นตัวเลขบน tab จะไม่ตรงกับผลลัพธ์ที่กดเข้าไปเห็น
+        const withCount = await Promise.all(
+          data.map(async (cat) => {
+            const { count } = await supabase
+              .from('research_items')
+              .select('id, research_categories!inner ( categories!inner ( slug ) )', { count: 'exact', head: true })
+              .eq('status', 'published')
+              .in('access_level', ['public', 'read_only', 'metadata_only'])
+              .eq('research_categories.categories.slug', cat.slug);
+            return { ...cat, count: count ?? 0 };
+          })
+        );
+        setCategories(withCount);
+      });
   }, []);
 
-  const load = useCallback(async (search: string, category: string | null) => {
+  const load = useCallback(async (
+    search: string,
+    category: string | null,
+    pageNum: number
+  ) => {
     setLoading(true);
     const { data, count } = await getPublicResearch({
       search,
       category: category ?? undefined,
-      limit: 30,
+      limit: PAGE_SIZE,
+      page: pageNum,
     });
     setItems(data);
     setTotal(count);
     setLoading(false);
   }, []);
 
+  // โหลดครั้งแรก + โหลด count รวม
   useEffect(() => {
-    load('', null);
+    load('', null, 1);
   }, [load]);
 
   useEffect(() => {
@@ -68,30 +98,49 @@ export default function SearchScreen() {
 
   function handleInput(text: string) {
     setSearchInput(text);
+    setPage(1);
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => load(text, selectedCategory), 400);
+    debounceRef.current = setTimeout(() => load(text, selectedCategory, 1), 400);
   }
 
   function clearSearch() {
     setSearchInput('');
+    setPage(1);
     clearTimeout(debounceRef.current);
-    load('', selectedCategory);
+    load('', selectedCategory, 1);
   }
 
   function handleCategory(slug: string | null) {
     setSelectedCategory(slug);
+    setPage(1);
     clearTimeout(debounceRef.current);
-    load(searchInput, slug);
+    load(searchInput, slug, 1);
+    // scroll to top
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   }
 
-  // Card แต่ละรายการ — ขนาด fixed width เพื่อให้ grid สม่ำเสมอ
+  function handlePage(newPage: number) {
+    if (newPage < 1 || newPage > totalPages) return;
+    setPage(newPage);
+    load(searchInput, selectedCategory, newPage);
+    // scroll to top smooth
+    setTimeout(() => {
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }, 100);
+  }
+
+  // นับ total ทั้งหมด (tab ທັງໝົດ)
+  const [allTotal, setAllTotal] = useState(0);
+  useEffect(() => {
+    getPublicResearch({ limit: 1, page: 1 }).then(({ count }) => setAllTotal(count));
+  }, []);
+
   const renderBook = ({ item }: { item: ResearchItem }) => (
     <TouchableOpacity
       style={[styles.bookCard, { width: CARD_WIDTH }]}
       onPress={() => router.push(`/research/${item.slug}`)}
       activeOpacity={0.75}
     >
-      {/* ปกหนังสือ */}
       {item.cover_image ? (
         <Image
           source={{ uri: item.cover_image }}
@@ -103,26 +152,78 @@ export default function SearchScreen() {
           <Ionicons name="document-text" size={28} color={colors.primary} />
         </View>
       )}
-
-      {/* ข้อมูลใต้ปก */}
       <View style={styles.cardInfo}>
-        <Text style={styles.cardTitle} numberOfLines={2}>
-          {item.title_th}
-        </Text>
+        <Text style={styles.cardTitle} numberOfLines={2}>{item.title_th}</Text>
         {item.year ? (
-          <Text style={styles.cardYear} numberOfLines={1}>
-            {toAD(item.year)}
-          </Text>
+          <Text style={styles.cardYear}>{toAD(item.year)}</Text>
         ) : null}
       </View>
     </TouchableOpacity>
   );
 
+  // Pagination bar
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+
+    // แสดงหน้าแบบ window: prev, [1]...[current-1][current][current+1]...[last], next
+    const pages: (number | '...')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (page > 3) pages.push('...');
+      for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) {
+        pages.push(i);
+      }
+      if (page < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+
+    return (
+      <View style={styles.pagination}>
+        {/* Prev */}
+        <TouchableOpacity
+          style={[styles.pageBtn, page === 1 && styles.pageBtnDisabled]}
+          onPress={() => handlePage(page - 1)}
+          disabled={page === 1}
+        >
+          <Ionicons name="chevron-back" size={16} color={page === 1 ? colors.text.muted : colors.primary} />
+        </TouchableOpacity>
+
+        {/* Page numbers */}
+        {pages.map((p, idx) =>
+          p === '...' ? (
+            <Text key={`dots-${idx}`} style={styles.pageDots}>…</Text>
+          ) : (
+            <TouchableOpacity
+              key={p}
+              style={[styles.pageBtn, p === page && styles.pageBtnActive]}
+              onPress={() => handlePage(p as number)}
+            >
+              <Text style={[styles.pageNum, p === page && styles.pageNumActive]}>
+                {p}
+              </Text>
+            </TouchableOpacity>
+          )
+        )}
+
+        {/* Next */}
+        <TouchableOpacity
+          style={[styles.pageBtn, page === totalPages && styles.pageBtnDisabled]}
+          onPress={() => handlePage(page + 1)}
+          disabled={page === totalPages}
+        >
+          <Ionicons name="chevron-forward" size={16} color={page === totalPages ? colors.text.muted : colors.primary} />
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* ── Header (สีหลัก) ── */}
+      {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
@@ -144,31 +245,30 @@ export default function SearchScreen() {
             </TouchableOpacity>
           )}
         </View>
-        {/* ปุ่ม filter (ไว้ขยายในอนาคต) */}
         <TouchableOpacity style={styles.filterBtn}>
           <Ionicons name="options-outline" size={22} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      {/* ── Category tabs ── */}
+      {/* ── Category tabs พร้อม count ── */}
       <View style={styles.tabsWrapper}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabs}
         >
-          {/* ทังหมด */}
+          {/* ທັງໝົດ */}
           <TouchableOpacity
             style={[styles.tab, !selectedCategory && styles.tabActive]}
             onPress={() => handleCategory(null)}
             activeOpacity={0.8}
           >
             <Text style={[styles.tabText, !selectedCategory && styles.tabTextActive]}>
-              ທັງໝົດ
+              ທັງໝົດ{allTotal > 0 ? ` (${allTotal})` : ''}
             </Text>
           </TouchableOpacity>
 
-          {/* หมวดหมู่จาก DB */}
+          {/* หมวดหมู่ */}
           {categories.map((cat) => (
             <TouchableOpacity
               key={cat.id}
@@ -176,63 +276,23 @@ export default function SearchScreen() {
               onPress={() => handleCategory(cat.slug)}
               activeOpacity={0.8}
             >
-              <Text
-                style={[
-                  styles.tabText,
-                  selectedCategory === cat.slug && styles.tabTextActive,
-                ]}
-              >
-                {cat.name_th}
+              <Text style={[styles.tabText, selectedCategory === cat.slug && styles.tabTextActive]}>
+                {cat.name_th}{cat.count != null ? ` (${cat.count})` : ''}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
 
-      {/* ── Filter chips แนวนอน (radio style) ── */}
-      <View style={styles.filterRow}>
-        {/* Radio: ทังหมด */}
-        <TouchableOpacity
-          style={styles.radioChip}
-          onPress={() => handleCategory(null)}
-          activeOpacity={0.8}
-        >
-          <View style={[
-            styles.radioCircle,
-            !selectedCategory && styles.radioCircleActive,
-          ]}>
-            {!selectedCategory && <View style={styles.radioInner} />}
-          </View>
-          <Text style={styles.radioText}>ທັງໝົດ</Text>
-        </TouchableOpacity>
-
-        {/* Radio chips สำหรับ 4 หมวดแรก */}
-        {categories.slice(0, 4).map((cat) => (
-          <TouchableOpacity
-            key={cat.id}
-            style={styles.radioChip}
-            onPress={() => handleCategory(cat.slug)}
-            activeOpacity={0.8}
-          >
-            <View style={[
-              styles.radioCircle,
-              selectedCategory === cat.slug && styles.radioCircleActive,
-            ]}>
-              {selectedCategory === cat.slug && <View style={styles.radioInner} />}
-            </View>
-            <Text style={styles.radioText} numberOfLines={1}>{cat.name_th}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* ── จำนวนผลลัพธ์ ── */}
+      {/* ── Result count + หน้าปัจจุบัน ── */}
       {!loading && (
         <Text style={styles.resultCount}>
           ຜົນການຄົ້ນຫາ {total} ລາຍການ
+          {totalPages > 1 ? `  ·  ໜ້າ ${page}/${totalPages}` : ''}
         </Text>
       )}
 
-      {/* ── Grid ── */}
+      {/* ── Grid + Pagination ── */}
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -246,6 +306,7 @@ export default function SearchScreen() {
         </View>
       ) : (
         <FlatList
+          ref={flatListRef}
           data={items}
           keyExtractor={(item) => item.id}
           renderItem={renderBook}
@@ -253,6 +314,7 @@ export default function SearchScreen() {
           contentContainerStyle={styles.grid}
           columnWrapperStyle={styles.row}
           showsVerticalScrollIndicator={false}
+          ListFooterComponent={renderPagination}
         />
       )}
     </View>
@@ -288,11 +350,11 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       flex: 1,
       ...typography.body,
       color: colors.text.primary,
-      paddingVertical: 0, // Android fix
+      paddingVertical: 0,
     },
     filterBtn: { padding: 4 },
 
-    // ── Category tabs (บน header สี) ──
+    // ── Tabs ──
     tabsWrapper: {
       backgroundColor: colors.primary,
       paddingBottom: spacing.sm,
@@ -315,48 +377,6 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     },
     tabTextActive: { color: colors.primary },
 
-    // ── Filter radio chips (ใต้ header) ──
-    filterRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: SIDE_PADDING,
-      paddingVertical: spacing.sm,
-      gap: spacing.md,
-      backgroundColor: colors.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      flexWrap: 'wrap',
-    },
-    radioChip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    radioCircle: {
-      width: 18,
-      height: 18,
-      borderRadius: 9,
-      borderWidth: 2,
-      borderColor: colors.border,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    radioCircleActive: {
-      borderColor: colors.primary,
-    },
-    radioInner: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: colors.primary,
-    },
-    radioText: {
-      ...typography.caption,
-      color: colors.text.secondary,
-      fontSize: 13,
-      maxWidth: 70,
-    },
-
     // ── Result count ──
     resultCount: {
       ...typography.caption,
@@ -365,7 +385,7 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       paddingVertical: spacing.sm,
     },
 
-    // ── Book grid ──
+    // ── Grid ──
     grid: {
       paddingHorizontal: SIDE_PADDING,
       paddingBottom: spacing.xl,
@@ -382,9 +402,7 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderColor: colors.border,
       ...shadows.sm,
     },
-    cover: {
-      width: '100%',
-    },
+    cover: { width: '100%' },
     placeholder: {
       backgroundColor: colors.primaryLight,
       alignItems: 'center',
@@ -407,7 +425,47 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       marginTop: 2,
     },
 
-    // ── Empty / Loading ──
+    // ── Pagination ──
+    pagination: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.md,
+    },
+    pageBtn: {
+      minWidth: 36,
+      height: 36,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+    },
+    pageBtnActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    pageBtnDisabled: {
+      opacity: 0.4,
+    },
+    pageNum: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
+    pageNumActive: {
+      color: '#fff',
+    },
+    pageDots: {
+      fontSize: 14,
+      color: colors.text.muted,
+      paddingHorizontal: 4,
+    },
+
+    // ── Empty/Loading ──
     center: {
       flex: 1,
       alignItems: 'center',
