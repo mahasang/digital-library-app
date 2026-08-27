@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  KeyboardAvoidingView, Platform, Alert
+  KeyboardAvoidingView, Platform, Alert, TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -19,34 +19,36 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({});
+  const [errors, setErrors] = useState<{
+    email?: string; password?: string; confirmPassword?: string;
+  }>({});
+
+  function validate() {
+    const e: typeof errors = {};
+    if (!email.trim()) e.email = 'ກະລຸນາປ້ອນອີເມວ';
+    else if (!email.includes('@')) e.email = 'ຮູບແບບອີເມວບໍ່ຖືກຕ້ອງ';
+    if (!password) e.password = 'ກະລຸນາປ້ອນລະຫັດຜ່ານ';
+    else if (password.length < 8) e.password = 'ລະຫັດຜ່ານຕ້ອງມີຢ່າງໜ້ອຍ 8 ຕົວອັກສອນ';
+    if (password && confirmPassword !== password) e.confirmPassword = 'ລະຫັດຜ່ານບໍ່ຕົງກັນ';
+    return e;
+  }
 
   async function handleRegister() {
-    const newErrors: typeof errors = {};
-    if (!email) newErrors.email = 'กรุณากรอกอีเมล';
-    if (!password) newErrors.password = 'กรุณากรอกรหัสผ่าน';
-    else if (password.length < 8) newErrors.password = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
-    if (password && confirmPassword !== password) newErrors.confirmPassword = 'รหัสผ่านไม่ตรงกัน';
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
+    const e = validate();
+    if (Object.keys(e).length > 0) { setErrors(e); return; }
     setLoading(true);
     setErrors({});
-
-    const { error } = await supabase.auth.signUp({ email, password });
-
+    const { error } = await supabase.auth.signUp({ email: email.trim(), password });
     setLoading(false);
-
     if (error) {
-      Alert.alert('สมัครสมาชิกไม่สำเร็จ', error.message);
+      Alert.alert('ສະໝັກສະມາຊິກບໍ່ສຳເລັດ', 'ອີເມວນີ້ອາດຖືກໃຊ້ແລ້ວ ຫຼື ເກີດຂໍ້ຜິດພາດ');
       return;
     }
-
-    Alert.alert('สมัครสมาชิกสำเร็จ', 'กรุณายืนยันอีเมลของคุณก่อนเข้าสู่ระบบ', [
-      { text: 'ตกลง', onPress: () => router.replace('/(auth)/login') },
-    ]);
+    Alert.alert(
+      'ສະໝັກສະມາຊິກສຳເລັດ',
+      'ກະລຸນາກວດສອບອີເມວຂອງທ່ານເພື່ອຢືນຢັນບັນຊີ',
+      [{ text: 'ຕົກລົງ', onPress: () => router.replace('/(auth)/login') }]
+    );
   }
 
   return (
@@ -55,6 +57,15 @@ export default function RegisterScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar style={isDark ? 'light' : 'dark'} />
+
+      {/* Back button */}
+      <TouchableOpacity
+        style={styles.backBtn}
+        onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}
+      >
+        <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
+      </TouchableOpacity>
+
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
@@ -70,13 +81,13 @@ export default function RegisterScreen() {
 
         <View style={styles.form}>
           <Text style={styles.title}>ສະໝັກສະມາຊິກ</Text>
-          <Text style={styles.subtitle}>ສະໝັກສະມາຊິກເພື່ອເຂົ້າເຖິງງານວິໄຈ ແລະຟີເຈີເພີ່ມເຕີມ</Text>
+          <Text style={styles.subtitle}>ສະໝັກສະມາຊິກເພື່ອເຂົ້າເຖິງງານວິໄຈ ແລະ ຟີເຈີເພີ່ມເຕີມ</Text>
 
           <Input
             label="ອີເມວ"
             placeholder="your@email.com"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={t => { setEmail(t); setErrors(e => ({ ...e, email: undefined })); }}
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
@@ -87,7 +98,7 @@ export default function RegisterScreen() {
             label="ລະຫັດຜ່ານ"
             placeholder="••••••••"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={t => { setPassword(t); setErrors(e => ({ ...e, password: undefined })); }}
             secureToggle
             error={errors.password}
           />
@@ -96,7 +107,7 @@ export default function RegisterScreen() {
             label="ຢືນຢັນລະຫັດຜ່ານ"
             placeholder="••••••••"
             value={confirmPassword}
-            onChangeText={setConfirmPassword}
+            onChangeText={t => { setConfirmPassword(t); setErrors(e => ({ ...e, confirmPassword: undefined })); }}
             secureToggle
             error={errors.confirmPassword}
           />
@@ -105,12 +116,12 @@ export default function RegisterScreen() {
             title="ສະໝັກສະມາຊິກ"
             onPress={handleRegister}
             loading={loading}
-            style={styles.registerButton}
+            style={styles.mainBtn}
           />
 
           <Button
             title="ມີບັນຊີຢູ່ແລ້ວ? ເຂົ້າສູ່ລະບົບ"
-            onPress={() => router.push('/(auth)/login')}
+            onPress={() => router.push('/(auth)/login' as any)}
             variant="ghost"
           />
         </View>
@@ -122,6 +133,13 @@ export default function RegisterScreen() {
 function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
+    backBtn: {
+      position: 'absolute',
+      top: spacing.xxl,
+      left: spacing.md,
+      zIndex: 10,
+      padding: spacing.xs,
+    },
     scroll: {
       flexGrow: 1,
       paddingHorizontal: spacing.lg,
@@ -148,6 +166,6 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     },
     title: { ...typography.h2, color: colors.text.primary, marginBottom: spacing.xs },
     subtitle: { ...typography.body, color: colors.text.secondary, marginBottom: spacing.lg },
-    registerButton: { marginTop: spacing.sm, marginBottom: spacing.sm },
+    mainBtn: { marginTop: spacing.sm, marginBottom: spacing.sm },
   });
 }

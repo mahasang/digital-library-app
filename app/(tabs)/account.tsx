@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Image, Modal, TextInput as RNTextInput } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { useSession } from '@/hooks/useSession';
 import { Button } from '@/components/ui/Button';
 import { signOut } from '@/lib/auth';
 import { getMyProfile, UserProfile } from '@/lib/profile';
+import { supabase } from '@/lib/supabase';
 import { FadeInView } from '@/components/ui/FadeInView';
 import { useMemo, useState, useEffect } from 'react';
 
@@ -26,6 +27,17 @@ export default function AccountScreen() {
   const session = useSession();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const [editVisible, setEditVisible] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editOrg, setEditOrg] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+
+  const [pwVisible, setPwVisible] = useState(false);
+  const [pwCurrent, setPwCurrent] = useState('');
+  const [pwNew, setPwNew] = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
 
   useEffect(() => {
     if (session) getMyProfile().then(setProfile);
@@ -80,6 +92,76 @@ export default function AccountScreen() {
     );
   }
 
+  function openEdit() {
+    setEditName(profile?.full_name ?? '');
+    setEditOrg(profile?.organization_name ?? '');
+    setEditVisible(true);
+  }
+
+  async function saveProfile() {
+    setEditLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setEditLoading(false);
+      Alert.alert('ຜິດພາດ', 'ບໍ່ພົບຂໍ້ມູນຜູ້ໃຊ້');
+      return;
+    }
+    const { error } = await supabase.from('profiles').update({
+      full_name: editName.trim(),
+      organization_name: editOrg.trim(),
+    }).eq('id', user.id);
+    setEditLoading(false);
+    if (error) {
+      Alert.alert('ຜິດພາດ', 'ບໍ່ສາມາດບັນທຶກໂປຣໄຟລໄດ້');
+      return;
+    }
+    setProfile(p => p ? { ...p, full_name: editName.trim(), organization_name: editOrg.trim() } : p);
+    setEditVisible(false);
+  }
+
+  async function changePassword() {
+    if (!pwCurrent) {
+      Alert.alert('ຜິດພາດ', 'ກະລຸນາປ້ອນລະຫັດຜ່ານປັດຈຸບັນ');
+      return;
+    }
+    if (!pwNew || pwNew.length < 8) {
+      Alert.alert('ຜິດພາດ', 'ລະຫັດຜ່ານໃໝ່ຕ້ອງມີຢ່າງໜ້ອຍ 8 ຕົວອັກສອນ');
+      return;
+    }
+    if (pwNew !== pwConfirm) {
+      Alert.alert('ຜິດພາດ', 'ລະຫັດຜ່ານໃໝ່ບໍ່ຕົງກັນ');
+      return;
+    }
+    setPwLoading(true);
+
+    // ຢືນຢັນຕົວຕົນດ້ວຍລະຫັດຜ່ານປັດຈຸບັນກ່ອນ — supabase.auth.updateUser() ບໍ່ໄດ້ກວດສອບໃຫ້ເອງ
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.email) {
+      setPwLoading(false);
+      Alert.alert('ຜິດພາດ', 'ບໍ່ສາມາດຢືນຢັນຕົວຕົນໄດ້');
+      return;
+    }
+    const { error: reauthError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: pwCurrent,
+    });
+    if (reauthError) {
+      setPwLoading(false);
+      Alert.alert('ຜິດພາດ', 'ລະຫັດຜ່ານປັດຈຸບັນບໍ່ຖືກຕ້ອງ');
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: pwNew });
+    setPwLoading(false);
+    if (error) {
+      Alert.alert('ຜິດພາດ', 'ບໍ່ສາມາດປ່ຽນລະຫັດຜ່ານໄດ້');
+      return;
+    }
+    Alert.alert('ສຳເລັດ', 'ປ່ຽນລະຫັດຜ່ານສຳເລັດ');
+    setPwVisible(false);
+    setPwCurrent(''); setPwNew(''); setPwConfirm('');
+  }
+
   const initials = profile?.full_name
     ? profile.full_name.slice(0, 2).toUpperCase()
     : profile?.email?.slice(0, 2).toUpperCase() ?? '??';
@@ -121,6 +203,12 @@ export default function AccountScreen() {
               </View>
             )}
           </View>
+          <TouchableOpacity
+            style={styles.editProfileBtn}
+            onPress={openEdit}
+          >
+            <Ionicons name="pencil-outline" size={18} color={colors.primary} />
+          </TouchableOpacity>
         </View>
 
         {profile?.organization_name && (
@@ -146,6 +234,15 @@ export default function AccountScreen() {
           >
             <Ionicons name="time-outline" size={20} color={colors.primary} />
             <Text style={styles.menuText}>ປະຫວັດການອ່ານ</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => setPwVisible(true)}
+          >
+            <Ionicons name="lock-closed-outline" size={20} color={colors.primary} />
+            <Text style={styles.menuText}>ປ່ຽນລະຫັດຜ່ານ</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
           </TouchableOpacity>
           <View style={styles.divider} />
@@ -183,6 +280,79 @@ export default function AccountScreen() {
         />
         </FadeInView>
       </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <Modal visible={editVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>ແກ້ໄຂໂປຣໄຟລ</Text>
+              <TouchableOpacity onPress={() => setEditVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalLabel}>ຊື່ເຕັມ</Text>
+            <RNTextInput
+              style={styles.modalInput}
+              value={editName}
+              onChangeText={setEditName}
+              placeholder="ຊື່ເຕັມ"
+              placeholderTextColor={colors.text.muted}
+            />
+            <Text style={styles.modalLabel}>ໜ່ວຍງານ</Text>
+            <RNTextInput
+              style={styles.modalInput}
+              value={editOrg}
+              onChangeText={setEditOrg}
+              placeholder="ໜ່ວຍງານ"
+              placeholderTextColor={colors.text.muted}
+            />
+            <Button title="ບັນທຶກ" onPress={saveProfile} loading={editLoading} style={{ marginTop: spacing.md }} />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Change Password Modal */}
+      <Modal visible={pwVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>ປ່ຽນລະຫັດຜ່ານ</Text>
+              <TouchableOpacity onPress={() => setPwVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalLabel}>ລະຫັດຜ່ານປັດຈຸບັນ</Text>
+            <RNTextInput
+              style={styles.modalInput}
+              value={pwCurrent}
+              onChangeText={setPwCurrent}
+              placeholder="ລະຫັດຜ່ານປັດຈຸບັນ"
+              placeholderTextColor={colors.text.muted}
+              secureTextEntry
+            />
+            <Text style={styles.modalLabel}>ລະຫັດຜ່ານໃໝ່</Text>
+            <RNTextInput
+              style={styles.modalInput}
+              value={pwNew}
+              onChangeText={setPwNew}
+              placeholder="ຢ່າງໜ້ອຍ 8 ຕົວອັກສອນ"
+              placeholderTextColor={colors.text.muted}
+              secureTextEntry
+            />
+            <Text style={styles.modalLabel}>ຢືນຢັນລະຫັດຜ່ານໃໝ່</Text>
+            <RNTextInput
+              style={styles.modalInput}
+              value={pwConfirm}
+              onChangeText={setPwConfirm}
+              placeholder="ຢືນຢັນລະຫັດຜ່ານ"
+              placeholderTextColor={colors.text.muted}
+              secureTextEntry
+            />
+            <Button title="ປ່ຽນລະຫັດຜ່ານ" onPress={changePassword} loading={pwLoading} style={{ marginTop: spacing.md }} />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -281,5 +451,42 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     guestSub: { ...typography.body, color: colors.text.secondary, textAlign: 'center' },
     loginBtn: { width: '100%', marginTop: spacing.sm },
     registerBtn: { width: '100%' },
+    editProfileBtn: {
+      position: 'absolute',
+      top: spacing.md,
+      right: spacing.md,
+      padding: spacing.xs,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalCard: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: radius.xl,
+      borderTopRightRadius: radius.xl,
+      padding: spacing.lg,
+      gap: spacing.xs,
+      paddingBottom: spacing.xxl,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.md,
+    },
+    modalTitle: { ...typography.h3, color: colors.text.primary },
+    modalLabel: { ...typography.label, color: colors.text.primary, marginTop: spacing.sm },
+    modalInput: {
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.md,
+      height: 52,
+      ...typography.body,
+      color: colors.text.primary,
+      backgroundColor: colors.background,
+    },
   });
 }

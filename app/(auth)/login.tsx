@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  KeyboardAvoidingView, Platform, Alert
+  KeyboardAvoidingView, Platform, Alert, TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -20,28 +20,34 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
-  async function handleLogin() {
-    const newErrors: typeof errors = {};
-    if (!email) newErrors.email = 'กรุณากรอกอีเมล';
-    if (!password) newErrors.password = 'กรุณากรอกรหัสผ่าน';
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
+  function validate() {
+    const e: typeof errors = {};
+    if (!email.trim()) e.email = 'ກະລຸນາປ້ອນອີເມວ';
+    else if (!email.includes('@')) e.email = 'ຮູບແບບອີເມວບໍ່ຖືກຕ້ອງ';
+    if (!password) e.password = 'ກະລຸນາປ້ອນລະຫັດຜ່ານ';
+    return e;
+  }
 
+  async function handleLogin() {
+    const e = validate();
+    if (Object.keys(e).length > 0) { setErrors(e); return; }
     setLoading(true);
     setErrors({});
-
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setLoading(false);
-
     if (error) {
-      Alert.alert('เข้าสู่ระบบไม่สำเร็จ', error.message);
+      Alert.alert('ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ', 'ອີເມວ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ');
       return;
     }
-
     router.replace('/(tabs)');
+  }
+
+  function handleForgotPassword() {
+    Alert.alert(
+      'ລືມລະຫັດຜ່ານ',
+      'ກະລຸນາຕິດຕໍ່ຜູ້ດູແລລະບົບ ຫຼື ສົ່ງອີເມວມາທີ່ info@digitallibrary.la',
+      [{ text: 'ຕົກລົງ' }]
+    );
   }
 
   return (
@@ -50,6 +56,15 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar style={isDark ? 'light' : 'dark'} />
+
+      {/* Back button */}
+      <TouchableOpacity
+        style={styles.backBtn}
+        onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}
+      >
+        <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
+      </TouchableOpacity>
+
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
@@ -71,7 +86,7 @@ export default function LoginScreen() {
             label="ອີເມວ"
             placeholder="your@email.com"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={t => { setEmail(t); setErrors(e => ({ ...e, email: undefined })); }}
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
@@ -82,21 +97,26 @@ export default function LoginScreen() {
             label="ລະຫັດຜ່ານ"
             placeholder="••••••••"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={t => { setPassword(t); setErrors(e => ({ ...e, password: undefined })); }}
             secureToggle
             error={errors.password}
           />
+
+          {/* Forgot password */}
+          <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotBtn}>
+            <Text style={styles.forgotText}>ລືມລະຫັດຜ່ານ?</Text>
+          </TouchableOpacity>
 
           <Button
             title="ເຂົ້າສູ່ລະບົບ"
             onPress={handleLogin}
             loading={loading}
-            style={styles.loginButton}
+            style={styles.mainBtn}
           />
 
           <Button
             title="ຍັງບໍ່ມີບັນຊີ? ສະໝັກສະມາຊິກ"
-            onPress={() => router.push('/(auth)/register')}
+            onPress={() => router.push('/(auth)/register' as any)}
             variant="ghost"
           />
         </View>
@@ -108,6 +128,13 @@ export default function LoginScreen() {
 function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
+    backBtn: {
+      position: 'absolute',
+      top: spacing.xxl,
+      left: spacing.md,
+      zIndex: 10,
+      padding: spacing.xs,
+    },
     scroll: {
       flexGrow: 1,
       paddingHorizontal: spacing.lg,
@@ -134,6 +161,8 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     },
     title: { ...typography.h2, color: colors.text.primary, marginBottom: spacing.xs },
     subtitle: { ...typography.body, color: colors.text.secondary, marginBottom: spacing.lg },
-    loginButton: { marginTop: spacing.sm, marginBottom: spacing.sm },
+    forgotBtn: { alignSelf: 'flex-end', marginTop: -spacing.xs, marginBottom: spacing.sm },
+    forgotText: { ...typography.caption, color: colors.primary },
+    mainBtn: { marginTop: spacing.xs, marginBottom: spacing.sm },
   });
 }
