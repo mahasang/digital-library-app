@@ -108,9 +108,13 @@ export async function getFavoriteResearch(): Promise<ResearchItem[]> {
     .filter(Boolean);
 }
 
+// ResearchItem + เวลาที่อ่านล่าสุด — ใช้ตอน group ประวัติการอ่านตามวันที่จริงที่อ่าน
+// (ห้ามใช้ published_at ของ research_items แทน นั่นคือวันที่ตีพิมพ์ ไม่ใช่วันที่ user อ่าน)
+export type ReadingHistoryItem = ResearchItem & { read_at: string };
+
 // ดึงงานวิจัยที่ user เคยเปิดอ่าน เรียงตามเวลาอ่านล่าสุดก่อน — เอาแค่ครั้งล่าสุดของแต่ละเรื่อง
 // (reading_history ไม่มี unique constraint จึงมีได้หลายแถวต่อเรื่องเดียวกัน ต้อง dedup ฝั่ง client)
-export async function getReadingHistory(): Promise<ResearchItem[]> {
+export async function getReadingHistory(): Promise<ReadingHistoryItem[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
@@ -135,5 +139,5 @@ export async function getReadingHistory(): Promise<ResearchItem[]> {
       seen.add(id);
       return true;
     })
-    .map((row) => row.research_items as ResearchItem);
+    .map((row) => ({ ...(row.research_items as ResearchItem), read_at: row.read_at }));
 }
