@@ -65,7 +65,7 @@ export default function FavoritesScreen() {
   const renderItem = ({ item }: { item: ResearchItem }) => (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => router.push(`/research/${item.slug}`)}
+      onPress={() => router.push(`/research/${item.slug}` as any)}
       activeOpacity={0.7}
     >
       <View style={styles.coverArea}>

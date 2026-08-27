@@ -84,7 +84,7 @@ export default function ShelfScreen() {
   const renderHCard = ({ item }: { item: ResearchItem }) => (
     <TouchableOpacity
       style={styles.hCard}
-      onPress={() => router.push(`/research/${item.slug}`)}
+      onPress={() => router.push(`/research/${item.slug}` as any)}
       activeOpacity={0.75}
     >
       {item.cover_image ? (
@@ -105,7 +105,7 @@ export default function ShelfScreen() {
   const renderGridCard = ({ item }: { item: ResearchItem }) => (
     <TouchableOpacity
       style={[styles.bookCard, { width: CARD_WIDTH }]}
-      onPress={() => router.push(`/research/${item.slug}`)}
+      onPress={() => router.push(`/research/${item.slug}` as any)}
       activeOpacity={0.75}
     >
       {item.cover_image ? (

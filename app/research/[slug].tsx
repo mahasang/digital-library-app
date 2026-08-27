@@ -141,7 +141,7 @@ export default function ResearchDetailScreen() {
                     router.push('/(auth)/login');
                     return;
                   }
-                  router.push(`/research/${slug}/pdf`);
+                  router.push(`/research/${slug}/pdf` as any);
                 }}
                 style={styles.pdfBtn}
               />

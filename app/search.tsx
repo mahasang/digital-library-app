@@ -3,7 +3,7 @@ import {
   TouchableOpacity, ScrollView, Image, ActivityIndicator,
   Dimensions,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
@@ -28,6 +28,7 @@ type Category = { id: string; name_th: string; slug: string; count?: number };
 
 export default function SearchScreen() {
   const { colors } = useTheme();
+  const { category: categoryParam } = useLocalSearchParams<{ category?: string }>();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const flatListRef = useRef<FlatList>(null);
 
@@ -36,7 +37,9 @@ export default function SearchScreen() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(
+    categoryParam ?? null
+  );
   const [page, setPage] = useState(1);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -87,10 +90,10 @@ export default function SearchScreen() {
     setLoading(false);
   }, []);
 
-  // โหลดครั้งแรก + โหลด count รวม
+  // โหลดครั้งแรก + โหลด count รวม — ใช้ category จาก param ถ้ามี
   useEffect(() => {
-    load('', null, 1);
-  }, [load]);
+    load('', categoryParam ?? null, 1);
+  }, [load, categoryParam]);
 
   useEffect(() => {
     return () => clearTimeout(debounceRef.current);
@@ -138,7 +141,7 @@ export default function SearchScreen() {
   const renderBook = ({ item }: { item: ResearchItem }) => (
     <TouchableOpacity
       style={[styles.bookCard, { width: CARD_WIDTH }]}
-      onPress={() => router.push(`/research/${item.slug}`)}
+      onPress={() => router.push(`/research/${item.slug}` as any)}
       activeOpacity={0.75}
     >
       {item.cover_image ? (

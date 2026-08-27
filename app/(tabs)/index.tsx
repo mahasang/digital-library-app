@@ -46,7 +46,7 @@ export default function HomeScreen() {
   const renderHCard = ({ item }: { item: ResearchItem }) => (
     <TouchableOpacity
       style={styles.hCard}
-      onPress={() => router.push(`/research/${item.slug}`)}
+      onPress={() => router.push(`/research/${item.slug}` as any)}
       activeOpacity={0.75}
     >
       {item.cover_image ? (
@@ -138,7 +138,7 @@ export default function HomeScreen() {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>ລາຍການຍອດນິຍົມ</Text>
               {popularTotal > 10 && (
-                <TouchableOpacity onPress={() => router.push('/(tabs)/research')}>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/research' as any)}>
                   <Text style={styles.seeAll}>ເບິ່ງເພີ່ມເຕີມ →</Text>
                 </TouchableOpacity>
               )}
@@ -161,7 +161,7 @@ export default function HomeScreen() {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>ງານວິໄຈລ່າສຸດ</Text>
               {latestTotal > 10 && (
-                <TouchableOpacity onPress={() => router.push('/(tabs)/research')}>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/research' as any)}>
                   <Text style={styles.seeAll}>ເບິ່ງເພີ່ມເຕີມ →</Text>
                 </TouchableOpacity>
               )}
