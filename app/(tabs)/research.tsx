@@ -101,31 +101,6 @@ export default function ShelfScreen() {
     </TouchableOpacity>
   );
 
-  // Card grid 3 คอลัมน์
-  const renderGridCard = ({ item }: { item: ResearchItem }) => (
-    <TouchableOpacity
-      style={[styles.bookCard, { width: CARD_WIDTH }]}
-      onPress={() => router.push(`/research/${item.slug}` as any)}
-      activeOpacity={0.75}
-    >
-      {item.cover_image ? (
-        <Image
-          source={{ uri: item.cover_image }}
-          style={[styles.bookCover, { height: COVER_HEIGHT }]}
-          resizeMode="cover"
-        />
-      ) : (
-        <View style={[styles.bookCover, styles.bookPlaceholder, { height: COVER_HEIGHT }]}>
-          <Ionicons name="document-text" size={28} color={colors.primary} />
-        </View>
-      )}
-      <View style={styles.cardInfo}>
-        <Text style={styles.bookTitle} numberOfLines={2}>{item.title_th}</Text>
-        {item.year ? <Text style={styles.bookYear}>{toAD(item.year)}</Text> : null}
-      </View>
-    </TouchableOpacity>
-  );
-
   // Section header พร้อมปุ่ม ເບິ່ງທັງໝົດ
   const SectionHeader = ({
     title,
@@ -232,7 +207,30 @@ export default function ShelfScreen() {
                 return rows;
               }, []).map((row, rowIdx) => (
                 <View key={rowIdx} style={styles.row}>
-                  {row.map(item => renderGridCard({ item }))}
+                  {row.map(item => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.bookCard, { width: CARD_WIDTH }]}
+                      onPress={() => router.push(`/research/${item.slug}` as any)}
+                      activeOpacity={0.75}
+                    >
+                      {item.cover_image ? (
+                        <Image
+                          source={{ uri: item.cover_image }}
+                          style={[styles.bookCover, { height: COVER_HEIGHT }]}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={[styles.bookCover, styles.bookPlaceholder, { height: COVER_HEIGHT }]}>
+                          <Ionicons name="document-text" size={28} color={colors.primary} />
+                        </View>
+                      )}
+                      <View style={styles.cardInfo}>
+                        <Text style={styles.bookTitle} numberOfLines={2}>{item.title_th}</Text>
+                        {item.year ? <Text style={styles.bookYear}>{toAD(item.year)}</Text> : null}
+                      </View>
+                    </TouchableOpacity>
+                  ))}
                   {/* เติม placeholder ถ้าแถวสุดท้ายไม่เต็ม */}
                   {row.length < NUM_COLUMNS &&
                     Array.from({ length: NUM_COLUMNS - row.length }).map((_, i) => (
