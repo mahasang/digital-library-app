@@ -14,6 +14,11 @@ import { getFavorites, toggleFavorite, addReadingHistory } from '@/lib/profile';
 import { Button } from '@/components/ui/Button';
 import { FadeInView } from '@/components/ui/FadeInView';
 
+/** แปลง พ.ศ → ค.ศ */
+function toAD(year: number) {
+  return year > 2500 ? year - 543 : year;
+}
+
 export default function ResearchDetailScreen() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -116,7 +121,7 @@ export default function ResearchDetailScreen() {
             <View style={styles.statsRow}>
               <View style={styles.stat}>
                 <Ionicons name="calendar-outline" size={16} color={colors.primary} />
-                <Text style={styles.statText}>{item.year}</Text>
+                <Text style={styles.statText}>{toAD(item.year)}</Text>
               </View>
               <View style={styles.stat}>
                 <Ionicons name="eye-outline" size={16} color={colors.primary} />

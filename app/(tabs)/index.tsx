@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView,
+  TouchableOpacity, FlatList, Image,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,39 +12,85 @@ import { useTheme } from '@/hooks/useTheme';
 import { Card } from '@/components/ui/Card';
 import { getResearchStats, getPublicResearch, ResearchItem } from '@/lib/research';
 
+const H_CARD_WIDTH = 110;
+const H_COVER_HEIGHT = 154; // ratio 1:1.4
+
+/** แปลง พ.ศ → ค.ศ */
+function toAD(year: number) {
+  return year > 2500 ? year - 543 : year;
+}
+
 export default function HomeScreen() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [stats, setStats] = useState({ research: 0, categories: 0, organizations: 0 });
+  const [popular, setPopular] = useState<ResearchItem[]>([]);
+  const [popularTotal, setPopularTotal] = useState(0);
   const [latest, setLatest] = useState<ResearchItem[]>([]);
+  const [latestTotal, setLatestTotal] = useState(0);
 
   useEffect(() => {
     getResearchStats().then(setStats);
-    getPublicResearch({ limit: 3 }).then(({ data }) => setLatest(data));
+    getPublicResearch({ limit: 10, sort: 'views' }).then(({ data, count }) => {
+      setPopular(data);
+      setPopularTotal(count);
+    });
+    getPublicResearch({ limit: 10, sort: 'latest' }).then(({ data, count }) => {
+      setLatest(data);
+      setLatestTotal(count);
+    });
   }, []);
+
+  /** Card แนวนอน ใช้ทั้ง popular และ latest */
+  const renderHCard = ({ item }: { item: ResearchItem }) => (
+    <TouchableOpacity
+      style={styles.hCard}
+      onPress={() => router.push(`/research/${item.slug}`)}
+      activeOpacity={0.75}
+    >
+      {item.cover_image ? (
+        <Image
+          source={{ uri: item.cover_image }}
+          style={styles.hCover}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={[styles.hCover, styles.hPlaceholder]}>
+          <Ionicons name="document-text" size={24} color={colors.primary} />
+        </View>
+      )}
+      <View style={styles.hInfo}>
+        <Text style={styles.hTitle} numberOfLines={2}>{item.title_th}</Text>
+        <Text style={styles.hYear}>{toAD(item.year)}</Text>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.container}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
+      {/* ── Header ── */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>ສະບາຍດີ 👋</Text>
-          <Text style={styles.headerTitle}>ຫ້ອງສະໝຸດດິຈິຕອນ</Text>
+        <View style={styles.headerLeft}>
+          {/* โลโก้ */}
+          <View style={styles.logoBox}>
+            <Ionicons name="library" size={22} color={colors.primary} />
+          </View>
+          <View>
+            <Text style={styles.greeting}>ສະບາຍດີ 👋</Text>
+            <Text style={styles.headerTitle}>ຫ້ອງສະໝຸດດິຈິຕອນ</Text>
+          </View>
         </View>
-        <TouchableOpacity
-          style={styles.headerIcon}
-          onPress={() => router.push('/search')}
-        >
-          <Ionicons name="search-outline" size={22} color={colors.primary} />
-        </TouchableOpacity>
+        {/* ไม่มีปุ่ม search */}
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
-        {/* Hero Banner */}
+        {/* ── Hero Banner (เล็กลง 50%) ── */}
         <LinearGradient
           colors={isDark ? ['#1e3a5f', '#0f172a'] : ['#185ff2', '#1248c4']}
           style={styles.hero}
@@ -62,13 +111,13 @@ export default function HomeScreen() {
           </View>
           <Ionicons
             name="library"
-            size={80}
+            size={56}
             color="rgba(255,255,255,0.15)"
             style={styles.heroIcon}
           />
         </LinearGradient>
 
-        {/* Stats */}
+        {/* ── Stats (เล็กลง) ── */}
         <View style={styles.statsRow}>
           {[
             { label: 'ງານວິໄຈ', value: stats.research.toString(), icon: 'document-text-outline' },
@@ -76,43 +125,56 @@ export default function HomeScreen() {
             { label: 'ຫນ່ວຍງານ', value: stats.organizations.toString(), icon: 'business-outline' },
           ].map((stat) => (
             <Card key={stat.label} style={styles.statCard}>
-              <Ionicons name={stat.icon as any} size={20} color={colors.primary} />
+              <Ionicons name={stat.icon as any} size={18} color={colors.primary} />
               <Text style={styles.statValue}>{stat.value}</Text>
               <Text style={styles.statLabel}>{stat.label}</Text>
             </Card>
           ))}
         </View>
 
-        {/* งานวิจัยล่าสุด */}
+        {/* ── ລາຍການຍອດນິຍົມ ── */}
+        {popular.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>ລາຍການຍອດນິຍົມ</Text>
+              {popularTotal > 10 && (
+                <TouchableOpacity onPress={() => router.push('/(tabs)/research')}>
+                  <Text style={styles.seeAll}>ເບິ່ງເພີ່ມເຕີມ →</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <FlatList
+              data={popular}
+              keyExtractor={(item) => item.id}
+              renderItem={renderHCard}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.hList}
+              ItemSeparatorComponent={() => <View style={{ width: spacing.sm }} />}
+            />
+          </View>
+        )}
+
+        {/* ── ງານວິໄຈລ່າສຸດ ── */}
         {latest.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>ງານວິໄຈລ່າສຸດ</Text>
-              <TouchableOpacity onPress={() => router.push('/(tabs)/research')}>
-                <Text style={styles.seeAll}>ເບິ່ງທັງໝົດ →</Text>
-              </TouchableOpacity>
+              {latestTotal > 10 && (
+                <TouchableOpacity onPress={() => router.push('/(tabs)/research')}>
+                  <Text style={styles.seeAll}>ເບິ່ງເພີ່ມເຕີມ →</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            {latest.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.latestCard}
-                onPress={() => router.push(`/research/${item.slug}`)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.latestIcon}>
-                  <Ionicons name="document-text" size={20} color={colors.primary} />
-                </View>
-                <View style={styles.latestContent}>
-                  <Text style={styles.latestTitle} numberOfLines={2}>
-                    {item.title_th}
-                  </Text>
-                  <Text style={styles.latestMeta}>
-                    {item.year} · {item.organizations?.name_th ?? ''}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
-              </TouchableOpacity>
-            ))}
+            <FlatList
+              data={latest}
+              keyExtractor={(item) => item.id}
+              renderItem={renderHCard}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.hList}
+              ItemSeparatorComponent={() => <View style={{ width: spacing.sm }} />}
+            />
           </View>
         )}
       </ScrollView>
@@ -123,6 +185,8 @@ export default function HomeScreen() {
 function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
+
+    // ── Header ──
     header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -134,43 +198,62 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
-    greeting: { ...typography.caption, color: colors.text.secondary },
-    headerTitle: { ...typography.h3, color: colors.text.primary },
-    headerIcon: {
-      width: 44, height: 44,
+    headerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    logoBox: {
+      width: 40,
+      height: 40,
       borderRadius: radius.md,
       backgroundColor: colors.primaryLight,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    scroll: { padding: spacing.lg, gap: spacing.md },
+    greeting: { ...typography.caption, color: colors.text.secondary },
+    headerTitle: { ...typography.h3, color: colors.text.primary },
+
+    scroll: { padding: spacing.md, gap: spacing.md },
+
+    // ── Hero (เล็กลง 50%) ──
     hero: {
       borderRadius: radius.xl,
-      padding: spacing.lg,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
       overflow: 'hidden',
       position: 'relative',
     },
-    heroContent: { gap: spacing.sm },
-    heroTitle: { ...typography.h2, color: '#fff' },
-    heroSubtitle: { ...typography.body, color: 'rgba(255,255,255,0.8)' },
+    heroContent: { gap: 4 },
+    heroTitle: { ...typography.h3, color: '#fff' },
+    heroSubtitle: { ...typography.caption, color: 'rgba(255,255,255,0.85)' },
     heroBtn: {
       alignSelf: 'flex-start',
       backgroundColor: 'rgba(255,255,255,0.2)',
       borderRadius: radius.md,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
       marginTop: spacing.xs,
     },
-    heroBtnText: { ...typography.label, color: '#fff' },
+    heroBtnText: { fontSize: 12, fontWeight: '600', color: '#fff' },
     heroIcon: {
       position: 'absolute',
-      right: -10,
-      top: -10,
+      right: -8,
+      top: -8,
     },
+
+    // ── Stats (เล็กลง) ──
     statsRow: { flexDirection: 'row', gap: spacing.sm },
-    statCard: { flex: 1, alignItems: 'center', gap: 4, padding: spacing.md },
-    statValue: { ...typography.h2, color: colors.primary },
-    statLabel: { ...typography.caption, color: colors.text.secondary },
+    statCard: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 2,
+      padding: spacing.sm,
+    },
+    statValue: { ...typography.h3, color: colors.primary },
+    statLabel: { fontSize: 10, color: colors.text.secondary, textAlign: 'center' },
+
+    // ── Section ──
     section: {},
     sectionHeader: {
       flexDirection: 'row',
@@ -180,27 +263,41 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     },
     sectionTitle: { ...typography.h3, color: colors.text.primary },
     seeAll: { ...typography.bodySmall, color: colors.primary },
-    latestCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      padding: spacing.md,
-      borderRadius: radius.lg,
+
+    // ── Horizontal card ──
+    hList: { paddingBottom: spacing.xs },
+    hCard: {
+      width: H_CARD_WIDTH,
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      overflow: 'hidden',
       borderWidth: 1,
       borderColor: colors.border,
-      backgroundColor: colors.surface,
-      marginBottom: spacing.sm,
       ...shadows.sm,
     },
-    latestIcon: {
-      width: 44, height: 44,
-      borderRadius: radius.md,
+    hCover: {
+      width: H_CARD_WIDTH,
+      height: H_COVER_HEIGHT,
+    },
+    hPlaceholder: {
       backgroundColor: colors.primaryLight,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    latestContent: { flex: 1 },
-    latestTitle: { ...typography.label, color: colors.text.primary },
-    latestMeta: { ...typography.caption, color: colors.text.muted, marginTop: 2 },
+    hInfo: {
+      padding: spacing.xs,
+      paddingBottom: 6,
+    },
+    hTitle: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.text.primary,
+      lineHeight: 15,
+    },
+    hYear: {
+      fontSize: 10,
+      color: colors.text.muted,
+      marginTop: 2,
+    },
   });
 }

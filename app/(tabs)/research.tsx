@@ -18,6 +18,11 @@ const SIDE_PADDING = 12;
 const CARD_WIDTH = (SCREEN_WIDTH - SIDE_PADDING * 2 - CARD_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 const COVER_HEIGHT = Math.round(CARD_WIDTH * 1.4);
 
+/** แปลง พ.ศ → ค.ศ */
+function toAD(year: number) {
+  return year > 2500 ? year - 543 : year;
+}
+
 export default function ShelfScreen() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -51,7 +56,7 @@ export default function ShelfScreen() {
       <View style={styles.cardInfo}>
         <Text style={styles.bookTitle} numberOfLines={2}>{item.title_th}</Text>
         {item.year ? (
-          <Text style={styles.bookYear}>{item.year}</Text>
+          <Text style={styles.bookYear}>{toAD(item.year)}</Text>
         ) : null}
       </View>
     </TouchableOpacity>

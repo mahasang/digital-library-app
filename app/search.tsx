@@ -19,6 +19,11 @@ const SIDE_PADDING = 12;
 const CARD_WIDTH = (SCREEN_WIDTH - SIDE_PADDING * 2 - CARD_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 const COVER_HEIGHT = Math.round(CARD_WIDTH * 1.4); // อัตราส่วนปกหนังสือ
 
+/** แปลง พ.ศ → ค.ศ */
+function toAD(year: number) {
+  return year > 2500 ? year - 543 : year;
+}
+
 export default function SearchScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -29,7 +34,7 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<{ id: string; name_th: string; slug: string }[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // โหลดหมวดหมู่
   useEffect(() => {
@@ -106,7 +111,7 @@ export default function SearchScreen() {
         </Text>
         {item.year ? (
           <Text style={styles.cardYear} numberOfLines={1}>
-            {item.year}
+            {toAD(item.year)}
           </Text>
         ) : null}
       </View>

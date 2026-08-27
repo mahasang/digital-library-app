@@ -52,17 +52,19 @@ export async function getPublicResearch(params: {
   category?: string;
   page?: number;
   limit?: number;
+  sort?: 'latest' | 'views' | 'downloads';
 }) {
-  const { search = '', category = '', page = 1, limit = 20 } = params;
+  const { search = '', category = '', page = 1, limit = 20, sort = 'latest' } = params;
   const from = (page - 1) * limit;
   const to = from + limit - 1;
+  const orderCol = sort === 'views' ? 'views' : sort === 'downloads' ? 'downloads' : 'published_at';
 
   let query = supabase
     .from('research_items')
     .select(category ? RESEARCH_SELECT_BY_CATEGORY : RESEARCH_SELECT, { count: 'exact' })
     .eq('status', 'published')
     .in('access_level', ['public', 'read_only', 'metadata_only'])
-    .order('published_at', { ascending: false })
+    .order(orderCol, { ascending: false })
     .range(from, to);
 
   if (search) {
