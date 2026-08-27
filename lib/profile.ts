@@ -107,3 +107,33 @@ export async function getFavoriteResearch(): Promise<ResearchItem[]> {
     .map((row) => row.research_items as unknown as ResearchItem)
     .filter(Boolean);
 }
+
+// ดึงงานวิจัยที่ user เคยเปิดอ่าน เรียงตามเวลาอ่านล่าสุดก่อน — เอาแค่ครั้งล่าสุดของแต่ละเรื่อง
+// (reading_history ไม่มี unique constraint จึงมีได้หลายแถวต่อเรื่องเดียวกัน ต้อง dedup ฝั่ง client)
+export async function getReadingHistory(): Promise<ResearchItem[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('reading_history')
+    .select(`read_at, research_items!inner ( ${RESEARCH_SELECT} )`)
+    .eq('user_id', user.id)
+    .eq('research_items.status', 'published')
+    .order('read_at', { ascending: false })
+    .limit(50);
+
+  if (error || !data) return [];
+
+  type HistoryRow = { read_at: string; research_items: ResearchItem | null };
+  const rows = data as unknown as HistoryRow[];
+
+  const seen = new Set<string>();
+  return rows
+    .filter((row) => {
+      const id = row.research_items?.id;
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    })
+    .map((row) => row.research_items as ResearchItem);
+}

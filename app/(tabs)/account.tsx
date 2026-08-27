@@ -133,14 +133,17 @@ export default function AccountScreen() {
         <View style={styles.menuCard}>
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => router.push('/favorites')}
+            onPress={() => router.push('/favorites' as any)}
           >
             <Ionicons name="heart-outline" size={20} color={colors.primary} />
             <Text style={styles.menuText}>ລາຍການທີ່ມັກ</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
           </TouchableOpacity>
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/history' as any)}
+          >
             <Ionicons name="time-outline" size={20} color={colors.primary} />
             <Text style={styles.menuText}>ປະຫວັດການອ່ານ</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />

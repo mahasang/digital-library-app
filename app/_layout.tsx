@@ -18,6 +18,7 @@ export default function RootLayout() {
         <Stack.Screen name="research/[slug]" />
         <Stack.Screen name="research/[slug]/pdf" />
         <Stack.Screen name="search" />
+        <Stack.Screen name="history" />
       </Stack>
     </ThemeProvider>
   );
