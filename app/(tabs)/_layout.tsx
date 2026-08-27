@@ -35,9 +35,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="research"
         options={{
-          title: 'ຄົ້ນຫາ',
+          title: 'ຊັ້ນຫນັງສື',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search-outline" size={size} color={color} />
+            <Ionicons name="library-outline" size={size} color={color} />
           ),
         }}
       />
