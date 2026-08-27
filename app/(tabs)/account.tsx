@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, radius, shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { useSession } from '@/hooks/useSession';
 import { Button } from '@/components/ui/Button';
 import { signOut } from '@/lib/auth';
 import { getMyProfile, UserProfile } from '@/lib/profile';
@@ -22,12 +23,42 @@ const ROLE_LABELS: Record<string, string> = {
 export default function AccountScreen() {
   const { colors, isDark, mode, setTheme } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const session = useSession();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    getMyProfile().then(setProfile);
-  }, []);
+    if (session) getMyProfile().then(setProfile);
+  }, [session]);
+
+  if (session === undefined) return null;
+
+  if (!session) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>ຕັ້ງຄ່າ</Text>
+        </View>
+        <View style={styles.center}>
+          <Ionicons name="person-circle-outline" size={80} color={colors.text.muted} />
+          <Text style={styles.guestTitle}>ຍັງບໍ່ໄດ້ເຂົ້າສູ່ລະບົບ</Text>
+          <Text style={styles.guestSub}>ເຂົ້າສູ່ລະບົບເພື່ອເຂົ້າເຖິງລາຍການທີ່ມັກ ແລະ ປະຫວັດການອ່ານ</Text>
+          <Button
+            title="ເຂົ້າສູ່ລະບົບ"
+            onPress={() => router.push('/(auth)/login')}
+            style={styles.loginBtn}
+          />
+          <Button
+            title="ສະໝັກສະມາຊິກ"
+            onPress={() => router.push('/(auth)/register')}
+            variant="outline"
+            style={styles.registerBtn}
+          />
+        </View>
+      </View>
+    );
+  }
 
   async function handleLogout() {
     Alert.alert(
@@ -242,5 +273,10 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     },
     themeBtnText: { fontSize: 16 },
     logoutBtn: { borderColor: colors.error },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
+    guestTitle: { ...typography.h3, color: colors.text.primary },
+    guestSub: { ...typography.body, color: colors.text.secondary, textAlign: 'center' },
+    loginBtn: { width: '100%', marginTop: spacing.sm },
+    registerBtn: { width: '100%' },
   });
 }

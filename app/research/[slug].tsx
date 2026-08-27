@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { useSession } from '@/hooks/useSession';
 import { getResearchBySlug, ResearchItem } from '@/lib/research';
 import { getFavorites, toggleFavorite, addReadingHistory } from '@/lib/profile';
 import { Button } from '@/components/ui/Button';
@@ -16,6 +17,7 @@ import { FadeInView } from '@/components/ui/FadeInView';
 export default function ResearchDetailScreen() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const session = useSession();
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const [item, setItem] = useState<ResearchItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,6 +40,10 @@ export default function ResearchDetailScreen() {
   }, [item]);
 
   async function handleFavorite() {
+    if (!session) {
+      router.push('/(auth)/login');
+      return;
+    }
     if (!item) return;
     const nowFav = await toggleFavorite(item.id);
     setIsFavorite(nowFav);
@@ -125,7 +131,13 @@ export default function ResearchDetailScreen() {
             {canReadPdf && (
               <Button
                 title="📄 ອ່ານ PDF ອອນລາຍ"
-                onPress={() => router.push(`/research/${slug}/pdf`)}
+                onPress={() => {
+                  if (!session) {
+                    router.push('/(auth)/login');
+                    return;
+                  }
+                  router.push(`/research/${slug}/pdf`);
+                }}
                 style={styles.pdfBtn}
               />
             )}

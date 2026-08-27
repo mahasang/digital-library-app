@@ -1,26 +1,11 @@
-import { Redirect } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Session } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 
 export default function TabsLayout() {
   const { colors } = useTheme();
-  const [session, setSession] = useState<Session | null | undefined>(undefined);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => setSession(session)
-    );
-    return () => subscription.unsubscribe();
-  }, []);
-
-  if (session === undefined) return null;
-  if (!session) return <Redirect href="/(auth)/login" />;
-
+  // ไม่ต้องตรวจ session ที่นี่อีกต่อไป
   return (
     <Tabs
       screenOptions={{

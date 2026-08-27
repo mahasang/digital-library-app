@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, radius, shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { useSession } from '@/hooks/useSession';
 import { getFavoriteResearch } from '@/lib/profile';
 import { ResearchItem } from '@/lib/research';
 import { ResearchCardSkeleton } from '@/components/ui/Skeleton';
@@ -16,6 +17,7 @@ import { Button } from '@/components/ui/Button';
 export default function FavoritesScreen() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const session = useSession();
   const [items, setItems] = useState<ResearchItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -27,13 +29,38 @@ export default function FavoritesScreen() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (session) load();
+  }, [session, load]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     await load();
     setRefreshing(false);
   };
+
+  if (session === undefined) return null;
+
+  if (!session) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>ລາຍການທີ່ມັກ</Text>
+        </View>
+        <View style={styles.empty}>
+          <Ionicons name="heart-outline" size={64} color={colors.text.muted} />
+          <Text style={styles.emptyTitle}>ເຂົ້າສູ່ລະບົບກ່ອນ</Text>
+          <Text style={styles.emptyText}>ເຂົ້າສູ່ລະບົບເພື່ອເບິ່ງລາຍການທີ່ມັກຂອງທ່ານ</Text>
+          <Button
+            title="ເຂົ້າສູ່ລະບົບ"
+            onPress={() => router.push('/(auth)/login')}
+            style={{ marginTop: spacing.md }}
+          />
+        </View>
+      </View>
+    );
+  }
 
   const renderItem = ({ item }: { item: ResearchItem }) => (
     <TouchableOpacity
