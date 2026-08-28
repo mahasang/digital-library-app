@@ -53,8 +53,14 @@ export async function getPublicResearch(params: {
   page?: number;
   limit?: number;
   sort?: 'latest' | 'views' | 'downloads';
+  yearFrom?: number;
+  yearTo?: number;
+  accessLevel?: string;
 }) {
-  const { search = '', category = '', page = 1, limit = 20, sort = 'latest' } = params;
+  const {
+    search = '', category = '', page = 1, limit = 20, sort = 'latest',
+    yearFrom, yearTo, accessLevel = '',
+  } = params;
   const from = (page - 1) * limit;
   const to = from + limit - 1;
   const orderCol = sort === 'views' ? 'views' : sort === 'downloads' ? 'downloads' : 'published_at';
@@ -73,6 +79,16 @@ export async function getPublicResearch(params: {
 
   if (category) {
     query = query.eq('research_categories.categories.slug', category);
+  }
+
+  if (accessLevel) {
+    query = query.eq('access_level', accessLevel);
+  }
+  if (yearFrom) {
+    query = query.gte('year', yearFrom);
+  }
+  if (yearTo) {
+    query = query.lte('year', yearTo);
   }
 
   const { data, error, count } = await query;

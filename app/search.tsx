@@ -1,7 +1,7 @@
 import {
   View, Text, StyleSheet, FlatList, TextInput,
   TouchableOpacity, ScrollView, ActivityIndicator,
-  Dimensions,
+  Dimensions, Modal,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -61,6 +61,13 @@ export default function SearchScreen() {
   const [page, setPage] = useState(1);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [sortBy, setSortBy] = useState<'latest' | 'views' | 'downloads'>('latest');
+  const [accessLevel, setAccessLevel] = useState('');
+  const [yearFrom, setYearFrom] = useState('');
+  const [yearTo, setYearTo] = useState('');
+  const [activeFilters, setActiveFilters] = useState(0); // จำนวน filter ที่ active
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   // โหลด categories พร้อม count แต่ละหมวด
@@ -94,7 +101,11 @@ export default function SearchScreen() {
   const load = useCallback(async (
     search: string,
     category: string | null,
-    pageNum: number
+    pageNum: number,
+    sort: 'latest' | 'views' | 'downloads' = sortBy,
+    access: string = accessLevel,
+    yFrom: string = yearFrom,
+    yTo: string = yearTo,
   ) => {
     setLoading(true);
     const { data, count } = await getPublicResearch({
@@ -102,16 +113,25 @@ export default function SearchScreen() {
       category: category ?? undefined,
       limit: PAGE_SIZE,
       page: pageNum,
+      sort,
+      accessLevel: access || undefined,
+      yearFrom: yFrom ? parseInt(yFrom) : undefined,
+      yearTo: yTo ? parseInt(yTo) : undefined,
     });
     setItems(data);
     setTotal(count);
     setLoading(false);
-  }, []);
+  }, [sortBy, accessLevel, yearFrom, yearTo]);
 
   // โหลดครั้งแรก + โหลด count รวม — ใช้ category จาก param ถ้ามี
+  // หมายเหตุ: deps ตั้งใจไม่ใส่ `load` — load เปลี่ยน identity ทุกครั้งที่ sortBy/accessLevel/
+  // yearFrom/yearTo เปลี่ยน (จากการแตะ chip ใน filter modal ก่อนกด "ນຳໃຊ້" ด้วยซ้ำ) ถ้าใส่ `load`
+  // ไว้ effect นี้จะยิงซ้ำและล้าง search กลับเป็นค่าว่าง+หน้า 1 โดยไม่ได้ตั้งใจทุกครั้งที่แตะ chip
+  // ปุ่ม ນຳໃຊ້/ລ້າງຕົວກອງ ส่งค่า filter ครบทุกตัวแบบ explicit อยู่แล้ว ไม่ได้พึ่ง default param ของ load ตรงนี้
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     load('', categoryParam ?? null, 1);
-  }, [load, categoryParam]);
+  }, [categoryParam]);
 
   useEffect(() => {
     return () => clearTimeout(debounceRef.current);
@@ -273,8 +293,16 @@ export default function SearchScreen() {
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity style={styles.filterBtn}>
+        <TouchableOpacity
+          style={styles.filterBtn}
+          onPress={() => setFilterVisible(true)}
+        >
           <Ionicons name="options-outline" size={22} color="#fff" />
+          {activeFilters > 0 && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{activeFilters}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -345,6 +373,118 @@ export default function SearchScreen() {
           ListFooterComponent={renderPagination}
         />
       )}
+
+      <Modal visible={filterVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>ຕົວກອງ</Text>
+              <TouchableOpacity onPress={() => setFilterVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Sort */}
+            <Text style={styles.filterLabel}>ຮຽງຕາມ</Text>
+            <View style={styles.filterChips}>
+              {([
+                { key: 'latest', label: 'ລ່າສຸດ' },
+                { key: 'views', label: 'ຍອດນິຍົມ' },
+                { key: 'downloads', label: 'ດາວໂຫລດ' },
+              ] as const).map(opt => (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[styles.chip, sortBy === opt.key && styles.chipActive]}
+                  onPress={() => setSortBy(opt.key)}
+                >
+                  <Text style={[styles.chipText, sortBy === opt.key && styles.chipTextActive]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Access level */}
+            <Text style={styles.filterLabel}>ລະດັບການເຂົ້າເຖິງ</Text>
+            <View style={styles.filterChips}>
+              {([
+                { key: '', label: 'ທັງໝົດ' },
+                { key: 'public', label: 'ສາທາລະນະ' },
+                { key: 'read_only', label: 'ອ່ານໄດ້' },
+                { key: 'metadata_only', label: 'ຂໍ້ມູນດ່ວນ' },
+              ]).map(opt => (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[styles.chip, accessLevel === opt.key && styles.chipActive]}
+                  onPress={() => setAccessLevel(opt.key)}
+                >
+                  <Text style={[styles.chipText, accessLevel === opt.key && styles.chipTextActive]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Year range */}
+            <Text style={styles.filterLabel}>ຊ່ວງປີ (ຄ.ສ.)</Text>
+            <View style={styles.yearRow}>
+              <TextInput
+                style={styles.yearInput}
+                placeholder="ຈາກປີ"
+                placeholderTextColor={colors.text.muted}
+                value={yearFrom}
+                onChangeText={setYearFrom}
+                keyboardType="numeric"
+                maxLength={4}
+              />
+              <Text style={{ color: colors.text.muted }}>—</Text>
+              <TextInput
+                style={styles.yearInput}
+                placeholder="ຫາປີ"
+                placeholderTextColor={colors.text.muted}
+                value={yearTo}
+                onChangeText={setYearTo}
+                keyboardType="numeric"
+                maxLength={4}
+              />
+            </View>
+
+            {/* Apply + Reset */}
+            <View style={styles.filterActions}>
+              <TouchableOpacity
+                style={styles.resetBtn}
+                onPress={() => {
+                  setSortBy('latest');
+                  setAccessLevel('');
+                  setYearFrom('');
+                  setYearTo('');
+                  setActiveFilters(0);
+                  setFilterVisible(false);
+                  load(searchInput, selectedCategory, 1, 'latest', '', '', '');
+                }}
+              >
+                <Text style={styles.resetText}>ລ້າງຕົວກອງ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.applyBtn}
+                onPress={() => {
+                  const count = [
+                    sortBy !== 'latest',
+                    accessLevel !== '',
+                    yearFrom !== '' || yearTo !== '',
+                  ].filter(Boolean).length;
+                  setActiveFilters(count);
+                  setFilterVisible(false);
+                  setPage(1);
+                  load(searchInput, selectedCategory, 1, sortBy, accessLevel, yearFrom, yearTo);
+                }}
+              >
+                <Text style={styles.applyText}>ນຳໃຊ້</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -381,6 +521,59 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       paddingVertical: 0,
     },
     filterBtn: { padding: 4 },
+    filterBadge: {
+      position: 'absolute', top: -4, right: -4,
+      width: 16, height: 16, borderRadius: 8,
+      backgroundColor: '#ef4444',
+      alignItems: 'center', justifyContent: 'center',
+    },
+    filterBadgeText: { fontSize: 9, color: '#fff', fontWeight: '700' },
+    modalOverlay: {
+      flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end',
+    },
+    modalCard: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
+      padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xxl,
+    },
+    modalHeader: {
+      flexDirection: 'row', justifyContent: 'space-between',
+      alignItems: 'center', marginBottom: spacing.sm,
+    },
+    modalTitle: { ...typography.h3, color: colors.text.primary },
+    filterLabel: { ...typography.label, color: colors.text.secondary, marginTop: spacing.sm },
+    filterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
+    chip: {
+      paddingHorizontal: spacing.md, paddingVertical: 6,
+      borderRadius: radius.full, borderWidth: 1, borderColor: colors.border,
+      backgroundColor: colors.background,
+    },
+    chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    chipText: { ...typography.caption, color: colors.text.secondary },
+    chipTextActive: { color: '#fff', fontWeight: '600' },
+    yearRow: {
+      flexDirection: 'row', alignItems: 'center',
+      gap: spacing.sm, marginTop: spacing.xs,
+    },
+    yearInput: {
+      flex: 1, height: 44, borderWidth: 1.5, borderColor: colors.border,
+      borderRadius: radius.md, paddingHorizontal: spacing.md,
+      ...typography.body, color: colors.text.primary,
+      backgroundColor: colors.background,
+    },
+    filterActions: {
+      flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md,
+    },
+    resetBtn: {
+      flex: 1, height: 48, borderRadius: radius.md, borderWidth: 1,
+      borderColor: colors.border, alignItems: 'center', justifyContent: 'center',
+    },
+    resetText: { ...typography.label, color: colors.text.secondary },
+    applyBtn: {
+      flex: 1, height: 48, borderRadius: radius.md,
+      backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
+    },
+    applyText: { ...typography.label, color: '#fff' },
 
     // ── Tabs ──
     tabsWrapper: {

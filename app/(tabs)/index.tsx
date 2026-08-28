@@ -109,7 +109,13 @@ export default function HomeScreen() {
             <Text style={styles.headerTitle}>ຫ້ອງສະໝຸດດິຈິຕອນ</Text>
           </View>
         </View>
-        {/* ไม่มีปุ่ม search */}
+        {/* ปุ่ม notifications */}
+        <TouchableOpacity
+          style={styles.notifBtn}
+          onPress={() => router.push('/notifications' as any)}
+        >
+          <Ionicons name="notifications-outline" size={22} color={colors.text.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -239,6 +245,13 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     },
     greeting: { ...typography.caption, color: colors.text.secondary },
     headerTitle: { ...typography.h3, color: colors.text.primary },
+    notifBtn: {
+      width: 44, height: 44,
+      borderRadius: radius.md,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
     scroll: { padding: spacing.md, gap: spacing.md },
 
