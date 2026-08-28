@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "digitallibraryapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true
     },
@@ -46,6 +46,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a7298764-f6ef-44a1-9f8f-bad7278edaa9"
+      }
     }
   }
 }
