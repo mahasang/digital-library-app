@@ -1,8 +1,9 @@
 import {
   View, Text, StyleSheet, FlatList, TextInput,
-  TouchableOpacity, ScrollView, Image, ActivityIndicator,
+  TouchableOpacity, ScrollView, ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -148,7 +149,9 @@ export default function SearchScreen() {
         <Image
           source={{ uri: item.cover_image }}
           style={[styles.cover, { height: COVER_HEIGHT }]}
-          resizeMode="cover"
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={200}
         />
       ) : (
         <View style={[styles.cover, styles.placeholder, { height: COVER_HEIGHT }]}>
@@ -405,7 +408,7 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderColor: colors.border,
       ...shadows.sm,
     },
-    cover: { width: '100%' },
+    cover: { width: '100%', backgroundColor: colors.primaryLight },
     placeholder: {
       backgroundColor: colors.primaryLight,
       alignItems: 'center',

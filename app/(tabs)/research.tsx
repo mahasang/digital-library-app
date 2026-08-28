@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ScrollView,
-  TouchableOpacity, Image, ActivityIndicator,
+  TouchableOpacity, ActivityIndicator,
   Dimensions,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -88,7 +89,13 @@ export default function ShelfScreen() {
       activeOpacity={0.75}
     >
       {item.cover_image ? (
-        <Image source={{ uri: item.cover_image }} style={styles.hCover} resizeMode="cover" />
+        <Image
+          source={{ uri: item.cover_image }}
+          style={styles.hCover}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={200}
+        />
       ) : (
         <View style={[styles.hCover, styles.hPlaceholder]}>
           <Ionicons name="document-text" size={24} color={colors.primary} />
@@ -218,7 +225,9 @@ export default function ShelfScreen() {
                         <Image
                           source={{ uri: item.cover_image }}
                           style={[styles.bookCover, { height: COVER_HEIGHT }]}
-                          resizeMode="cover"
+                          contentFit="cover"
+                          cachePolicy="memory-disk"
+                          transition={200}
                         />
                       ) : (
                         <View style={[styles.bookCover, styles.bookPlaceholder, { height: COVER_HEIGHT }]}>
@@ -308,6 +317,7 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     hCover: {
       width: H_CARD_WIDTH,
       height: H_COVER_HEIGHT,
+      backgroundColor: colors.primaryLight,
     },
     hPlaceholder: {
       backgroundColor: colors.primaryLight,
@@ -340,7 +350,7 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderColor: colors.border,
       ...shadows.sm,
     },
-    bookCover: { width: '100%' },
+    bookCover: { width: '100%', backgroundColor: colors.primaryLight },
     bookPlaceholder: {
       backgroundColor: colors.primaryLight,
       alignItems: 'center',

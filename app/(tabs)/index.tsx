@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, FlatList, Image,
+  TouchableOpacity, FlatList,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -53,7 +54,9 @@ export default function HomeScreen() {
         <Image
           source={{ uri: item.cover_image }}
           style={styles.hCover}
-          resizeMode="cover"
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={200}
         />
       ) : (
         <View style={[styles.hCover, styles.hPlaceholder]}>
@@ -278,6 +281,7 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     hCover: {
       width: H_CARD_WIDTH,
       height: H_COVER_HEIGHT,
+      backgroundColor: colors.primaryLight,
     },
     hPlaceholder: {
       backgroundColor: colors.primaryLight,

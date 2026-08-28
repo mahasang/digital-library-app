@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Image, Modal, TextInput as RNTextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal, TextInput as RNTextInput } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -184,6 +185,9 @@ export default function AccountScreen() {
             <Image
               source={{ uri: profile.avatar_url }}
               style={styles.avatarImage}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
             />
           ) : (
             <View style={styles.avatar}>

@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet,
-  TouchableOpacity, Image, RefreshControl, Alert,
+  TouchableOpacity, RefreshControl, Alert,
   Animated, PanResponder, SectionList,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -101,7 +102,13 @@ function SwipeableHistoryCard({
         <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
           <View style={styles.coverArea}>
             {item.cover_image ? (
-              <Image source={{ uri: item.cover_image }} style={styles.cover} resizeMode="cover" />
+              <Image
+                source={{ uri: item.cover_image }}
+                style={styles.cover}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={200}
+              />
             ) : (
               <View style={[styles.cover, styles.coverPlaceholder]}>
                 <Ionicons name="document-text" size={28} color={colors.primary} />
@@ -278,7 +285,7 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       ...shadows.sm,
     },
     coverArea: { width: 90 },
-    cover: { width: 90, height: 120 },
+    cover: { width: 90, height: 120, backgroundColor: colors.primaryLight },
     coverPlaceholder: {
       backgroundColor: colors.primaryLight,
       alignItems: 'center',

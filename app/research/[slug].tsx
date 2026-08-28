@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, ActivityIndicator, Image, Share,
+  TouchableOpacity, ActivityIndicator, Share,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -126,7 +127,13 @@ export default function ResearchDetailScreen() {
           {/* ── Cover Hero ── */}
           <View style={styles.heroWrap}>
             {item.cover_image ? (
-              <Image source={{ uri: item.cover_image }} style={styles.cover} resizeMode="cover" />
+              <Image
+                source={{ uri: item.cover_image }}
+                style={styles.cover}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={300}
+              />
             ) : (
               <View style={[styles.cover, styles.coverPlaceholder]}>
                 <Ionicons name="document-text-outline" size={80} color={colors.text.muted} />
@@ -229,7 +236,13 @@ export default function ResearchDetailScreen() {
                       activeOpacity={0.75}
                     >
                       {r.cover_image ? (
-                        <Image source={{ uri: r.cover_image }} style={styles.relatedCover} resizeMode="cover" />
+                        <Image
+                        source={{ uri: r.cover_image }}
+                        style={styles.relatedCover}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
+                        transition={200}
+                      />
                       ) : (
                         <View style={[styles.relatedCover, styles.relatedPlaceholder]}>
                           <Ionicons name="document-text" size={20} color={colors.primary} />
@@ -361,7 +374,7 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderWidth: 1,
       borderColor: colors.border,
     },
-    relatedCover: { width: 100, height: 140 },
+    relatedCover: { width: 100, height: 140, backgroundColor: colors.primaryLight },
     relatedPlaceholder: {
       backgroundColor: colors.primaryLight,
       alignItems: 'center',
