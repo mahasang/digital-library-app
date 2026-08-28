@@ -8,6 +8,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
+import { useT } from '@/contexts/LanguageContext';
 import { getPublicResearch, ResearchItem } from '@/lib/research';
 import { supabase } from '@/lib/supabase';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -46,6 +47,7 @@ type Category = { id: string; name_th: string; slug: string; count?: number };
 
 export default function SearchScreen() {
   const { colors } = useTheme();
+  const t = useT();
   const { category: categoryParam } = useLocalSearchParams<{ category?: string }>();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const flatListRef = useRef<FlatList>(null);
@@ -280,7 +282,7 @@ export default function SearchScreen() {
           <Ionicons name="search-outline" size={16} color={colors.text.muted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="ຄົ້ນຫາງານວິໄຈ..."
+            placeholder={t('search_placeholder')}
             placeholderTextColor={colors.text.muted}
             value={searchInput}
             onChangeText={handleInput}
@@ -320,7 +322,7 @@ export default function SearchScreen() {
             activeOpacity={0.8}
           >
             <Text style={[styles.tabText, !selectedCategory && styles.tabTextActive]}>
-              ທັງໝົດ{allTotal > 0 ? ` (${allTotal})` : ''}
+              {t('search_all')}{allTotal > 0 ? ` (${allTotal})` : ''}
             </Text>
           </TouchableOpacity>
 
@@ -343,8 +345,8 @@ export default function SearchScreen() {
       {/* ── Result count + หน้าปัจจุบัน ── */}
       {!loading && (
         <Text style={styles.resultCount}>
-          ຜົນການຄົ້ນຫາ {total} ລາຍການ
-          {totalPages > 1 ? `  ·  ໜ້າ ${page}/${totalPages}` : ''}
+          {t('search_result')} {total} {t('search_items')}
+          {totalPages > 1 ? `  ·  ${t('search_page')} ${page}/${totalPages}` : ''}
         </Text>
       )}
 
@@ -357,7 +359,7 @@ export default function SearchScreen() {
         <View style={styles.center}>
           <Ionicons name="search-outline" size={48} color={colors.text.muted} />
           <Text style={[styles.resultCount, { marginTop: spacing.md }]}>
-            ບໍ່ພົບງານວິໄຈ
+            {t('search_empty')}
           </Text>
         </View>
       ) : (
@@ -378,19 +380,19 @@ export default function SearchScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>ຕົວກອງ</Text>
+              <Text style={styles.modalTitle}>{t('filter_title')}</Text>
               <TouchableOpacity onPress={() => setFilterVisible(false)}>
                 <Ionicons name="close" size={24} color={colors.text.primary} />
               </TouchableOpacity>
             </View>
 
             {/* Sort */}
-            <Text style={styles.filterLabel}>ຮຽງຕາມ</Text>
+            <Text style={styles.filterLabel}>{t('filter_sort')}</Text>
             <View style={styles.filterChips}>
               {([
-                { key: 'latest', label: 'ລ່າສຸດ' },
-                { key: 'views', label: 'ຍອດນິຍົມ' },
-                { key: 'downloads', label: 'ດາວໂຫລດ' },
+                { key: 'latest', label: t('filter_latest') },
+                { key: 'views', label: t('filter_popular') },
+                { key: 'downloads', label: t('filter_downloads') },
               ] as const).map(opt => (
                 <TouchableOpacity
                   key={opt.key}
@@ -405,13 +407,13 @@ export default function SearchScreen() {
             </View>
 
             {/* Access level */}
-            <Text style={styles.filterLabel}>ລະດັບການເຂົ້າເຖິງ</Text>
+            <Text style={styles.filterLabel}>{t('filter_access')}</Text>
             <View style={styles.filterChips}>
               {([
-                { key: '', label: 'ທັງໝົດ' },
-                { key: 'public', label: 'ສາທາລະນະ' },
-                { key: 'read_only', label: 'ອ່ານໄດ້' },
-                { key: 'metadata_only', label: 'ຂໍ້ມູນດ່ວນ' },
+                { key: '', label: t('search_all') },
+                { key: 'public', label: t('filter_public') },
+                { key: 'read_only', label: t('filter_readonly') },
+                { key: 'metadata_only', label: t('filter_meta') },
               ]).map(opt => (
                 <TouchableOpacity
                   key={opt.key}
@@ -426,11 +428,11 @@ export default function SearchScreen() {
             </View>
 
             {/* Year range */}
-            <Text style={styles.filterLabel}>ຊ່ວງປີ (ຄ.ສ.)</Text>
+            <Text style={styles.filterLabel}>{t('filter_year')}</Text>
             <View style={styles.yearRow}>
               <TextInput
                 style={styles.yearInput}
-                placeholder="ຈາກປີ"
+                placeholder={t('year_from')}
                 placeholderTextColor={colors.text.muted}
                 value={yearFrom}
                 onChangeText={setYearFrom}
@@ -440,7 +442,7 @@ export default function SearchScreen() {
               <Text style={{ color: colors.text.muted }}>—</Text>
               <TextInput
                 style={styles.yearInput}
-                placeholder="ຫາປີ"
+                placeholder={t('year_to')}
                 placeholderTextColor={colors.text.muted}
                 value={yearTo}
                 onChangeText={setYearTo}
@@ -463,7 +465,7 @@ export default function SearchScreen() {
                   load(searchInput, selectedCategory, 1, 'latest', '', '', '');
                 }}
               >
-                <Text style={styles.resetText}>ລ້າງຕົວກອງ</Text>
+                <Text style={styles.resetText}>{t('filter_reset')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.applyBtn}
@@ -479,7 +481,7 @@ export default function SearchScreen() {
                   load(searchInput, selectedCategory, 1, sortBy, accessLevel, yearFrom, yearTo);
                 }}
               >
-                <Text style={styles.applyText}>ນຳໃຊ້</Text>
+                <Text style={styles.applyText}>{t('filter_apply')}</Text>
               </TouchableOpacity>
             </View>
           </View>

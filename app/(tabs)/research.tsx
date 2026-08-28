@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, radius, shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { useT } from '@/contexts/LanguageContext';
 import { getPublicResearch, ResearchItem } from '@/lib/research';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -61,6 +62,7 @@ type SectionData = {
 
 export default function ShelfScreen() {
   const { colors, isDark } = useTheme();
+  const t = useT();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   // หนังสือโดดเด่น (sort by views)
@@ -146,7 +148,7 @@ export default function ShelfScreen() {
       <Text style={styles.sectionTitle}>{title}</Text>
       {total > 10 && onSeeAll && (
         <TouchableOpacity onPress={onSeeAll}>
-          <Text style={styles.seeAll}>ເບິ່ງທັງໝົດ →</Text>
+          <Text style={styles.seeAll}>{t('shelf_see_all')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -158,12 +160,12 @@ export default function ShelfScreen() {
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>ຊັ້ນຫນັງສື</Text>
+        <Text style={styles.headerTitle}>{t('shelf_title')}</Text>
         <TouchableOpacity
           style={styles.searchBtn}
           onPress={() => router.push('/search')}
         >
-          <Text style={styles.searchLabel}>ຄົ້ນຫາ</Text>
+          <Text style={styles.searchLabel}>{t('shelf_search')}</Text>
           <Ionicons name="search-outline" size={20} color={colors.primary} />
         </TouchableOpacity>
       </View>
@@ -173,7 +175,7 @@ export default function ShelfScreen() {
         {/* ── ຫນັງສືໂດດເດັ່ນ ── */}
         <View style={styles.section}>
           <SectionHeader
-            title="ຫນັງສືໂດດເດັ່ນ"
+            title={t('shelf_featured')}
             total={featured.total}
             onSeeAll={() => router.push('/search')}
           />
@@ -223,7 +225,7 @@ export default function ShelfScreen() {
         {/* ── ທັງໝົດ (grid 3 คอลัมน์) ── */}
         <View style={styles.section}>
           <SectionHeader
-            title="ທັງໝົດ"
+            title={t('shelf_all')}
             total={allItems.length}
             onSeeAll={() => router.push('/search')}
           />

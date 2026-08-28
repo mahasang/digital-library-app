@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { spacing, typography, radius, shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { useT } from '@/contexts/LanguageContext';
 import { Card } from '@/components/ui/Card';
 import { getResearchStats, getPublicResearch, ResearchItem } from '@/lib/research';
 
@@ -39,6 +40,7 @@ function StarRow({ score = 0 }: { score?: number }) {
 
 export default function HomeScreen() {
   const { colors, isDark } = useTheme();
+  const t = useT();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [stats, setStats] = useState({ research: 0, categories: 0, organizations: 0 });
@@ -105,8 +107,8 @@ export default function HomeScreen() {
             <Ionicons name="library" size={22} color={colors.primary} />
           </View>
           <View>
-            <Text style={styles.greeting}>ສະບາຍດີ 👋</Text>
-            <Text style={styles.headerTitle}>ຫ້ອງສະໝຸດດິຈິຕອນ</Text>
+            <Text style={styles.greeting}>{t('home_greeting')}</Text>
+            <Text style={styles.headerTitle}>{t('home_title')}</Text>
           </View>
         </View>
         {/* ปุ่ม notifications */}
@@ -130,7 +132,7 @@ export default function HomeScreen() {
           end={{ x: 1, y: 1 }}
         >
           <View style={styles.heroContent}>
-            <Text style={styles.heroTitle}>ຍິນດີຕ້ອນຮັບ 👋</Text>
+            <Text style={styles.heroTitle}>{t('home_welcome')}</Text>
             <Text style={styles.heroSubtitle}>
               ຄົ້ນຫາງານວິໄຈກວ່າ {stats.research} ລາຍການ
             </Text>
@@ -138,7 +140,7 @@ export default function HomeScreen() {
               style={styles.heroBtn}
               onPress={() => router.push('/search')}
             >
-              <Text style={styles.heroBtnText}>ຄົ້ນຫາງານວິໄຈ →</Text>
+              <Text style={styles.heroBtnText}>{t('home_search_btn')}</Text>
             </TouchableOpacity>
           </View>
           <Ionicons
@@ -152,9 +154,9 @@ export default function HomeScreen() {
         {/* ── Stats (เล็กลง) ── */}
         <View style={styles.statsRow}>
           {[
-            { label: 'ງານວິໄຈ', value: stats.research.toString(), icon: 'document-text-outline' },
-            { label: 'ຫມວດຫມູ່', value: stats.categories.toString(), icon: 'folder-outline' },
-            { label: 'ຫນ່ວຍງານ', value: stats.organizations.toString(), icon: 'business-outline' },
+            { label: t('stat_research'), value: stats.research.toString(), icon: 'document-text-outline' },
+            { label: t('stat_category'), value: stats.categories.toString(), icon: 'folder-outline' },
+            { label: t('stat_org'), value: stats.organizations.toString(), icon: 'business-outline' },
           ].map((stat) => (
             <Card key={stat.label} style={styles.statCard}>
               <Ionicons name={stat.icon as any} size={18} color={colors.primary} />
@@ -168,10 +170,10 @@ export default function HomeScreen() {
         {popular.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>ລາຍການຍອດນິຍົມ</Text>
+              <Text style={styles.sectionTitle}>{t('home_popular')}</Text>
               {popularTotal > 10 && (
                 <TouchableOpacity onPress={() => router.push('/(tabs)/research' as any)}>
-                  <Text style={styles.seeAll}>ເບິ່ງເພີ່ມເຕີມ →</Text>
+                  <Text style={styles.seeAll}>{t('home_see_more')}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -191,10 +193,10 @@ export default function HomeScreen() {
         {latest.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>ງານວິໄຈລ່າສຸດ</Text>
+              <Text style={styles.sectionTitle}>{t('home_latest')}</Text>
               {latestTotal > 10 && (
                 <TouchableOpacity onPress={() => router.push('/(tabs)/research' as any)}>
-                  <Text style={styles.seeAll}>ເບິ່ງເພີ່ມເຕີມ →</Text>
+                  <Text style={styles.seeAll}>{t('home_see_more')}</Text>
                 </TouchableOpacity>
               )}
             </View>

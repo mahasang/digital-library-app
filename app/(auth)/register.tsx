@@ -11,9 +11,11 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { spacing, typography, radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { useT } from '@/contexts/LanguageContext';
 
 export default function RegisterScreen() {
   const { colors, isDark } = useTheme();
+  const t = useT();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,11 +27,11 @@ export default function RegisterScreen() {
 
   function validate() {
     const e: typeof errors = {};
-    if (!email.trim()) e.email = 'ກະລຸນາປ້ອນອີເມວ';
-    else if (!email.includes('@')) e.email = 'ຮູບແບບອີເມວບໍ່ຖືກຕ້ອງ';
-    if (!password) e.password = 'ກະລຸນາປ້ອນລະຫັດຜ່ານ';
-    else if (password.length < 8) e.password = 'ລະຫັດຜ່ານຕ້ອງມີຢ່າງໜ້ອຍ 8 ຕົວອັກສອນ';
-    if (password && confirmPassword !== password) e.confirmPassword = 'ລະຫັດຜ່ານບໍ່ຕົງກັນ';
+    if (!email.trim()) e.email = t('val_email_required');
+    else if (!email.includes('@')) e.email = t('val_email_invalid');
+    if (!password) e.password = t('val_pw_required');
+    else if (password.length < 8) e.password = t('val_pw_short');
+    if (password && confirmPassword !== password) e.confirmPassword = t('val_pw_mismatch');
     return e;
   }
 
@@ -41,13 +43,13 @@ export default function RegisterScreen() {
     const { error } = await supabase.auth.signUp({ email: email.trim(), password });
     setLoading(false);
     if (error) {
-      Alert.alert('ສະໝັກສະມາຊິກບໍ່ສຳເລັດ', 'ອີເມວນີ້ອາດຖືກໃຊ້ແລ້ວ ຫຼື ເກີດຂໍ້ຜິດພາດ');
+      Alert.alert(t('register_fail'), 'ອີເມວນີ້ອາດຖືກໃຊ້ແລ້ວ ຫຼື ເກີດຂໍ້ຜິດພາດ');
       return;
     }
     Alert.alert(
-      'ສະໝັກສະມາຊິກສຳເລັດ',
-      'ກະລຸນາກວດສອບອີເມວຂອງທ່ານເພື່ອຢືນຢັນບັນຊີ',
-      [{ text: 'ຕົກລົງ', onPress: () => router.replace('/(auth)/login') }]
+      t('register_success'),
+      t('register_verify'),
+      [{ text: t('common_ok'), onPress: () => router.replace('/(auth)/login') }]
     );
   }
 
@@ -80,14 +82,14 @@ export default function RegisterScreen() {
         </View>
 
         <View style={styles.form}>
-          <Text style={styles.title}>ສະໝັກສະມາຊິກ</Text>
-          <Text style={styles.subtitle}>ສະໝັກສະມາຊິກເພື່ອເຂົ້າເຖິງງານວິໄຈ ແລະ ຟີເຈີເພີ່ມເຕີມ</Text>
+          <Text style={styles.title}>{t('register_title')}</Text>
+          <Text style={styles.subtitle}>{t('register_subtitle')}</Text>
 
           <Input
-            label="ອີເມວ"
+            label={t('field_email')}
             placeholder="your@email.com"
             value={email}
-            onChangeText={t => { setEmail(t); setErrors(e => ({ ...e, email: undefined })); }}
+            onChangeText={val => { setEmail(val); setErrors(e => ({ ...e, email: undefined })); }}
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
@@ -95,32 +97,32 @@ export default function RegisterScreen() {
           />
 
           <Input
-            label="ລະຫັດຜ່ານ"
+            label={t('field_password')}
             placeholder="••••••••"
             value={password}
-            onChangeText={t => { setPassword(t); setErrors(e => ({ ...e, password: undefined })); }}
+            onChangeText={val => { setPassword(val); setErrors(e => ({ ...e, password: undefined })); }}
             secureToggle
             error={errors.password}
           />
 
           <Input
-            label="ຢືນຢັນລະຫັດຜ່ານ"
+            label={t('field_confirm_pw')}
             placeholder="••••••••"
             value={confirmPassword}
-            onChangeText={t => { setConfirmPassword(t); setErrors(e => ({ ...e, confirmPassword: undefined })); }}
+            onChangeText={val => { setConfirmPassword(val); setErrors(e => ({ ...e, confirmPassword: undefined })); }}
             secureToggle
             error={errors.confirmPassword}
           />
 
           <Button
-            title="ສະໝັກສະມາຊິກ"
+            title={t('register_btn')}
             onPress={handleRegister}
             loading={loading}
             style={styles.mainBtn}
           />
 
           <Button
-            title="ມີບັນຊີຢູ່ແລ້ວ? ເຂົ້າສູ່ລະບົບ"
+            title={t('register_has_account')}
             onPress={() => router.push('/(auth)/login' as any)}
             variant="ghost"
           />

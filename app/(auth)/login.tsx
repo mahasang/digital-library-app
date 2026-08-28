@@ -11,9 +11,11 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { spacing, typography, radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { useT } from '@/contexts/LanguageContext';
 
 export default function LoginScreen() {
   const { colors, isDark } = useTheme();
+  const t = useT();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,9 +24,9 @@ export default function LoginScreen() {
 
   function validate() {
     const e: typeof errors = {};
-    if (!email.trim()) e.email = 'ກະລຸນາປ້ອນອີເມວ';
-    else if (!email.includes('@')) e.email = 'ຮູບແບບອີເມວບໍ່ຖືກຕ້ອງ';
-    if (!password) e.password = 'ກະລຸນາປ້ອນລະຫັດຜ່ານ';
+    if (!email.trim()) e.email = t('val_email_required');
+    else if (!email.includes('@')) e.email = t('val_email_invalid');
+    if (!password) e.password = t('val_pw_required');
     return e;
   }
 
@@ -36,7 +38,7 @@ export default function LoginScreen() {
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setLoading(false);
     if (error) {
-      Alert.alert('ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ', 'ອີເມວ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ');
+      Alert.alert(t('login_fail'), t('login_wrong_pw'));
       return;
     }
     router.replace('/(tabs)');
@@ -44,9 +46,9 @@ export default function LoginScreen() {
 
   function handleForgotPassword() {
     Alert.alert(
-      'ລືມລະຫັດຜ່ານ',
-      'ກະລຸນາຕິດຕໍ່ຜູ້ດູແລລະບົບ ຫຼື ສົ່ງອີເມວມາທີ່ info@digitallibrary.la',
-      [{ text: 'ຕົກລົງ' }]
+      t('login_forgot'),
+      t('common_forgot_msg'),
+      [{ text: t('common_ok') }]
     );
   }
 
@@ -79,14 +81,14 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.form}>
-          <Text style={styles.title}>ເຂົ້າສູ່ລະບົບ</Text>
-          <Text style={styles.subtitle}>ເຂົ້າສູ່ລະບົບເພື່ອເຂົ້າເຖິງງານວິໄຈ</Text>
+          <Text style={styles.title}>{t('login_title')}</Text>
+          <Text style={styles.subtitle}>{t('login_subtitle')}</Text>
 
           <Input
-            label="ອີເມວ"
+            label={t('field_email')}
             placeholder="your@email.com"
             value={email}
-            onChangeText={t => { setEmail(t); setErrors(e => ({ ...e, email: undefined })); }}
+            onChangeText={val => { setEmail(val); setErrors(e => ({ ...e, email: undefined })); }}
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
@@ -94,28 +96,28 @@ export default function LoginScreen() {
           />
 
           <Input
-            label="ລະຫັດຜ່ານ"
+            label={t('field_password')}
             placeholder="••••••••"
             value={password}
-            onChangeText={t => { setPassword(t); setErrors(e => ({ ...e, password: undefined })); }}
+            onChangeText={val => { setPassword(val); setErrors(e => ({ ...e, password: undefined })); }}
             secureToggle
             error={errors.password}
           />
 
           {/* Forgot password */}
           <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotBtn}>
-            <Text style={styles.forgotText}>ລືມລະຫັດຜ່ານ?</Text>
+            <Text style={styles.forgotText}>{t('login_forgot')}</Text>
           </TouchableOpacity>
 
           <Button
-            title="ເຂົ້າສູ່ລະບົບ"
+            title={t('login_btn')}
             onPress={handleLogin}
             loading={loading}
             style={styles.mainBtn}
           />
 
           <Button
-            title="ຍັງບໍ່ມີບັນຊີ? ສະໝັກສະມາຊິກ"
+            title={t('login_no_account')}
             onPress={() => router.push('/(auth)/register' as any)}
             variant="ghost"
           />

@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, radius, shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { useSession } from '@/hooks/useSession';
+import { useT } from '@/contexts/LanguageContext';
 import { getFavoriteResearch, toggleFavorite } from '@/lib/profile';
 import { ResearchItem } from '@/lib/research';
 import { ResearchCardSkeleton } from '@/components/ui/Skeleton';
@@ -37,6 +38,7 @@ function SwipeableCard({
   styles: ReturnType<typeof createStyles>;
   colors: ThemeColors;
 }) {
+  const t = useT();
   const translateX = useRef(new Animated.Value(0)).current;
   const SWIPE_THRESHOLD = -80;
 
@@ -58,10 +60,10 @@ function SwipeableCard({
   ).current;
 
   function handleRemove() {
-    Alert.alert('ລຶບອອກ', 'ທ່ານຕ້ອງການລຶບອອກຈາກລາຍການທີ່ມັກບໍ?', [
-      { text: 'ຍົກເລີກ', style: 'cancel', onPress: () => Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start() },
+    Alert.alert(t('fav_remove'), t('fav_remove_q'), [
+      { text: t('common_cancel'), style: 'cancel', onPress: () => Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start() },
       {
-        text: 'ລຶບ', style: 'destructive', onPress: () => {
+        text: t('common_delete'), style: 'destructive', onPress: () => {
           Animated.timing(translateX, { toValue: -400, duration: 250, useNativeDriver: true }).start(() => onRemove());
         },
       },
@@ -74,7 +76,7 @@ function SwipeableCard({
       <View style={styles.swipeBg}>
         <TouchableOpacity onPress={handleRemove} style={styles.swipeAction}>
           <Ionicons name="trash-outline" size={22} color="#fff" />
-          <Text style={styles.swipeText}>ລຶບ</Text>
+          <Text style={styles.swipeText}>{t('common_delete')}</Text>
         </TouchableOpacity>
       </View>
       {/* Card */}
@@ -125,6 +127,7 @@ function SwipeableCard({
 
 export default function FavoritesScreen() {
   const { colors, isDark } = useTheme();
+  const t = useT();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const session = useSession();
   const [items, setItems] = useState<ResearchItem[]>([]);
@@ -166,15 +169,15 @@ export default function FavoritesScreen() {
       <View style={styles.container}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>ລາຍການທີ່ມັກ</Text>
+          <Text style={styles.headerTitle}>{t('tab_favorites')}</Text>
         </View>
         <View style={styles.empty}>
           <View style={styles.emptyIcon}>
             <Ionicons name="heart-outline" size={40} color={colors.primary} />
           </View>
-          <Text style={styles.emptyTitle}>ເຂົ້າສູ່ລະບົບກ່ອນ</Text>
-          <Text style={styles.emptyText}>ເຂົ້າສູ່ລະບົບເພື່ອເບິ່ງລາຍການທີ່ມັກຂອງທ່ານ</Text>
-          <Button title="ເຂົ້າສູ່ລະບົບ" onPress={() => router.push('/(auth)/login' as any)} style={{ marginTop: spacing.md, minWidth: 200 }} />
+          <Text style={styles.emptyTitle}>{t('fav_login')}</Text>
+          <Text style={styles.emptyText}>{t('fav_login_text')}</Text>
+          <Button title={t('login_btn')} onPress={() => router.push('/(auth)/login' as any)} style={{ marginTop: spacing.md, minWidth: 200 }} />
         </View>
       </View>
     );
@@ -185,16 +188,16 @@ export default function FavoritesScreen() {
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>ລາຍການທີ່ມັກ</Text>
+        <Text style={styles.headerTitle}>{t('tab_favorites')}</Text>
         {items.length > 0 && (
-          <Text style={styles.headerCount}>{items.length} ລາຍການ</Text>
+          <Text style={styles.headerCount}>{items.length} {t('fav_items')}</Text>
         )}
       </View>
 
       {/* Sort bar */}
       {items.length > 1 && (
         <View style={styles.sortBar}>
-          <Text style={styles.sortLabel}>ຮຽງຕາມ:</Text>
+          <Text style={styles.sortLabel}>{t('fav_sort_by')}</Text>
           {(['latest', 'name'] as SortKey[]).map(s => (
             <TouchableOpacity
               key={s}
@@ -202,7 +205,7 @@ export default function FavoritesScreen() {
               onPress={() => setSort(s)}
             >
               <Text style={[styles.sortBtnText, sort === s && styles.sortBtnTextActive]}>
-                {s === 'latest' ? 'ລ່າສຸດ' : 'ຊື່'}
+                {s === 'latest' ? t('fav_sort_latest') : t('fav_sort_name')}
               </Text>
             </TouchableOpacity>
           ))}
@@ -218,12 +221,12 @@ export default function FavoritesScreen() {
           <View style={styles.emptyIcon}>
             <Ionicons name="heart-outline" size={40} color={colors.primary} />
           </View>
-          <Text style={styles.emptyTitle}>ຍັງບໍ່ມີລາຍການທີ່ມັກ</Text>
+          <Text style={styles.emptyTitle}>{t('fav_empty_title')}</Text>
           <Text style={styles.emptyText}>
-            ກົດ ❤️ ໃນໜ້າລາຍລະອຽດງານວິໄຈ ເພື່ອບັນທຶກໄວ້ອ່ານພາຍຫຼັງ
+            {t('fav_empty_text')}
           </Text>
           <Button
-            title="ຄົ້ນຫາງານວິໄຈ"
+            title={t('fav_search')}
             onPress={() => router.push('/search' as any)}
             style={{ marginTop: spacing.sm, minWidth: 200 }}
           />

@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, radius, shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { useSession } from '@/hooks/useSession';
+import { useT } from '@/contexts/LanguageContext';
 import { getPublicResearch, getResearchBySlug, ResearchItem } from '@/lib/research';
 import { getFavorites, toggleFavorite, addReadingHistory } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
@@ -87,6 +88,7 @@ function relativeTime(dateStr: string): string {
 
 export default function ResearchDetailScreen() {
   const { colors, isDark } = useTheme();
+  const t = useT();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const session = useSession();
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -200,7 +202,7 @@ export default function ResearchDetailScreen() {
 
     if (error) {
       setRatingLoading(false);
-      Alert.alert('ຜິດພາດ', 'ບໍ່ສາມາດບັນທຶກຄະແນນໄດ້');
+      Alert.alert(t('common_error'), t('common_rating_error'));
       return;
     }
 
@@ -231,7 +233,7 @@ export default function ResearchDetailScreen() {
     });
 
     if (error) {
-      Alert.alert('ຜິດພາດ', 'ບໍ່ສາມາດສົ່ງຄຳເຫັນໄດ້');
+      Alert.alert(t('common_error'), t('common_comment_error'));
     } else {
       setCommentText('');
       await loadComments(item.id);
@@ -251,8 +253,8 @@ export default function ResearchDetailScreen() {
     return (
       <View style={styles.center}>
         <Ionicons name="alert-circle-outline" size={48} color={colors.text.muted} />
-        <Text style={styles.errorText}>ບໍ່ພົບງານວິໄຈ</Text>
-        <Button title="ກັບໄປ" onPress={() => router.back()} variant="outline" />
+        <Text style={styles.errorText}>{t('detail_not_found')}</Text>
+        <Button title={t('common_back')} onPress={() => router.back()} variant="outline" />
       </View>
     );
   }
@@ -350,11 +352,11 @@ export default function ResearchDetailScreen() {
               <View style={styles.ratingLeft}>
                 <Text style={styles.ratingScore}>{avgRating > 0 ? avgRating.toFixed(1) : '—'}</Text>
                 <StarRating score={avgRating} readonly size={18} colors={colors} />
-                <Text style={styles.ratingCount}>{ratingCount} ຄະແນນ</Text>
+                <Text style={styles.ratingCount}>{ratingCount} {t('rating_count')}</Text>
               </View>
               <View style={styles.ratingRight}>
                 <Text style={styles.ratingLabel}>
-                  {session ? 'ໃຫ້ຄະແນນ:' : 'ເຂົ້າສູ່ລະບົບເພື່ອໃຫ້ຄະແນນ'}
+                  {session ? t('rating_label') : t('rating_login')}
                 </Text>
                 {session && (
                   <StarRating
@@ -379,32 +381,32 @@ export default function ResearchDetailScreen() {
                 activeOpacity={0.85}
               >
                 <Ionicons name="document-text" size={20} color="#fff" />
-                <Text style={styles.pdfBtnText}>ອ່ານ PDF ອອນລາຍ</Text>
+                <Text style={styles.pdfBtnText}>{t('detail_read_pdf')}</Text>
               </TouchableOpacity>
             )}
 
             {/* Sections */}
             {item.organizations?.name_th && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>ໜ່ວຍງານ</Text>
+                <Text style={styles.sectionTitle}>{t('detail_org')}</Text>
                 <Text style={styles.sectionText}>{item.organizations.name_th}</Text>
               </View>
             )}
             {authors && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>ຜູ້ວິໄຈ</Text>
+                <Text style={styles.sectionTitle}>{t('detail_author')}</Text>
                 <Text style={styles.sectionText}>{authors}</Text>
               </View>
             )}
             {item.abstract && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>ບົດຄັດຫຍໍ້</Text>
+                <Text style={styles.sectionTitle}>{t('detail_abstract')}</Text>
                 <Text style={styles.sectionText}>{item.abstract}</Text>
               </View>
             )}
             {keywords.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>ຄຳສຳຄັນ</Text>
+                <Text style={styles.sectionTitle}>{t('detail_keywords')}</Text>
                 <View style={styles.keywords}>
                   {keywords.map((kw, i) => (
                     <View key={i} style={styles.keyword}>
@@ -418,7 +420,7 @@ export default function ResearchDetailScreen() {
             {/* Related */}
             {related.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>ງານວິໄຈທີ່ກ່ຽວຂ້ອງ</Text>
+                <Text style={styles.sectionTitle}>{t('detail_related')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.relatedScroll}>
                   {related.map(r => (
                     <TouchableOpacity
@@ -443,13 +445,13 @@ export default function ResearchDetailScreen() {
 
             {/* ── Comments ── */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>ຄຳເຫັນ ({comments.length})</Text>
+              <Text style={styles.sectionTitle}>{t('comment_title')} ({comments.length})</Text>
 
               {/* Add comment */}
               <View style={styles.commentInput}>
                 <TextInput
                   style={styles.commentBox}
-                  placeholder={session ? 'ຂຽນຄຳເຫັນ...' : 'ເຂົ້າສູ່ລະບົບເພື່ອຄຳເຫັນ'}
+                  placeholder={session ? t('comment_placeholder') : t('comment_login')}
                   placeholderTextColor={colors.text.muted}
                   value={commentText}
                   onChangeText={setCommentText}
@@ -471,7 +473,7 @@ export default function ResearchDetailScreen() {
 
               {/* Comment list */}
               {comments.length === 0 ? (
-                <Text style={styles.noComment}>ຍັງບໍ່ມີຄຳເຫັນ</Text>
+                <Text style={styles.noComment}>{t('comment_empty')}</Text>
               ) : (
                 comments.map(c => {
                   const initials = c.author_name.slice(0, 2).toUpperCase();

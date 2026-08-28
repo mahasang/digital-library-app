@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, radius, shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { useSession } from '@/hooks/useSession';
-import { useLanguage, AppLanguage } from '@/contexts/LanguageContext';
+import { useLanguage, useT, AppLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/Button';
 import { signOut } from '@/lib/auth';
 import { getMyProfile, UserProfile } from '@/lib/profile';
@@ -26,6 +26,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function AccountScreen() {
   const { colors, isDark, mode, setTheme } = useTheme();
   const { language, setLanguage } = useLanguage();
+  const t = useT();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const session = useSession();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -53,7 +54,7 @@ export default function AccountScreen() {
       <View style={styles.container}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>ຕັ້ງຄ່າ</Text>
+          <Text style={styles.headerTitle}>{t('tab_settings')}</Text>
         </View>
         <ScrollView contentContainerStyle={styles.scroll}>
           {/* Settings card สำหรับ guest */}
@@ -61,7 +62,7 @@ export default function AccountScreen() {
             {/* Theme toggle */}
             <View style={styles.menuItem}>
               <Ionicons name="moon-outline" size={20} color={colors.primary} />
-              <Text style={styles.menuText}>ຮູບແບບສີ</Text>
+              <Text style={styles.menuText}>{t('account_theme')}</Text>
               <View style={styles.themeButtons}>
                 {(['light', 'system', 'dark'] as const).map((m) => (
                   <TouchableOpacity
@@ -80,16 +81,16 @@ export default function AccountScreen() {
             {/* Language switcher */}
             <View style={styles.menuItem}>
               <Ionicons name="language-outline" size={20} color={colors.primary} />
-              <Text style={styles.menuText}>ພາສາ</Text>
+              <Text style={styles.menuText}>{t('account_language')}</Text>
               <View style={styles.themeButtons}>
-                {(['lo', 'th', 'en'] as AppLanguage[]).map((lang) => (
+                {(['lo', 'th', 'en', 'vi'] as AppLanguage[]).map((lang) => (
                   <TouchableOpacity
                     key={lang}
                     onPress={() => setLanguage(lang)}
                     style={[styles.langBtn, language === lang && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                   >
                     <Text style={[styles.langBtnText, language === lang && { color: '#fff' }]}>
-                      {lang === 'lo' ? 'ລາວ' : lang === 'th' ? 'ไทย' : 'EN'}
+                      {lang === 'lo' ? 'ລາວ' : lang === 'th' ? 'ไทย' : lang === 'en' ? 'EN' : 'VI'}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -100,15 +101,15 @@ export default function AccountScreen() {
           {/* Guest login prompt */}
           <View style={styles.center}>
             <Ionicons name="person-circle-outline" size={80} color={colors.text.muted} />
-            <Text style={styles.guestTitle}>ຍັງບໍ່ໄດ້ເຂົ້າສູ່ລະບົບ</Text>
-            <Text style={styles.guestSub}>ເຂົ້າສູ່ລະບົບເພື່ອເຂົ້າເຖິງລາຍການທີ່ມັກ ແລະ ປະຫວັດການອ່ານ</Text>
+            <Text style={styles.guestTitle}>{t('account_guest')}</Text>
+            <Text style={styles.guestSub}>{t('account_guest_sub')}</Text>
             <Button
-              title="ເຂົ້າສູ່ລະບົບ"
+              title={t('login_btn')}
               onPress={() => router.push('/(auth)/login')}
               style={styles.loginBtn}
             />
             <Button
-              title="ສະໝັກສະມາຊິກ"
+              title={t('register_btn')}
               onPress={() => router.push('/(auth)/register')}
               variant="outline"
               style={styles.registerBtn}
@@ -121,18 +122,18 @@ export default function AccountScreen() {
 
   async function handleLogout() {
     Alert.alert(
-      'ອອກຈາກລະບົບ',
-      'ທ່ານຕ້ອງການອອກຈາກລະບົບບໍ?',
+      t('account_logout'),
+      t('account_logout_q'),
       [
-        { text: 'ຍົກເລີກ', style: 'cancel' },
+        { text: t('common_cancel'), style: 'cancel' },
         {
-          text: 'ອອກຈາກລະບົບ',
+          text: t('account_logout'),
           style: 'destructive',
           onPress: async () => {
             setLoading(true);
             const { error } = await signOut();
             setLoading(false);
-            if (error) Alert.alert('ຜິດພາດ', error.message);
+            if (error) Alert.alert(t('common_error'), error.message);
           },
         },
       ]
@@ -150,7 +151,7 @@ export default function AccountScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setEditLoading(false);
-      Alert.alert('ຜິດພາດ', 'ບໍ່ພົບຂໍ້ມູນຜູ້ໃຊ້');
+      Alert.alert(t('common_error'), t('common_no_user'));
       return;
     }
     const { error } = await supabase.from('profiles').update({
@@ -159,7 +160,7 @@ export default function AccountScreen() {
     }).eq('id', user.id);
     setEditLoading(false);
     if (error) {
-      Alert.alert('ຜິດພາດ', 'ບໍ່ສາມາດບັນທຶກໂປຣໄຟລໄດ້');
+      Alert.alert(t('common_error'), t('common_save_error'));
       return;
     }
     setProfile(p => p ? { ...p, full_name: editName.trim(), organization_name: editOrg.trim() } : p);
@@ -168,15 +169,15 @@ export default function AccountScreen() {
 
   async function changePassword() {
     if (!pwCurrent) {
-      Alert.alert('ຜິດພາດ', 'ກະລຸນາປ້ອນລະຫັດຜ່ານປັດຈຸບັນ');
+      Alert.alert(t('common_error'), t('common_pw_req'));
       return;
     }
     if (!pwNew || pwNew.length < 8) {
-      Alert.alert('ຜິດພາດ', 'ລະຫັດຜ່ານໃໝ່ຕ້ອງມີຢ່າງໜ້ອຍ 8 ຕົວອັກສອນ');
+      Alert.alert(t('common_error'), t('val_pw_short'));
       return;
     }
     if (pwNew !== pwConfirm) {
-      Alert.alert('ຜິດພາດ', 'ລະຫັດຜ່ານໃໝ່ບໍ່ຕົງກັນ');
+      Alert.alert(t('common_error'), t('val_pw_mismatch'));
       return;
     }
     setPwLoading(true);
@@ -185,7 +186,7 @@ export default function AccountScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user?.email) {
       setPwLoading(false);
-      Alert.alert('ຜິດພາດ', 'ບໍ່ສາມາດຢືນຢັນຕົວຕົນໄດ້');
+      Alert.alert(t('common_error'), t('common_auth_error'));
       return;
     }
     const { error: reauthError } = await supabase.auth.signInWithPassword({
@@ -194,17 +195,17 @@ export default function AccountScreen() {
     });
     if (reauthError) {
       setPwLoading(false);
-      Alert.alert('ຜິດພາດ', 'ລະຫັດຜ່ານປັດຈຸບັນບໍ່ຖືກຕ້ອງ');
+      Alert.alert(t('common_error'), t('common_pw_wrong'));
       return;
     }
 
     const { error } = await supabase.auth.updateUser({ password: pwNew });
     setPwLoading(false);
     if (error) {
-      Alert.alert('ຜິດພາດ', 'ບໍ່ສາມາດປ່ຽນລະຫັດຜ່ານໄດ້');
+      Alert.alert(t('common_error'), t('common_pw_error'));
       return;
     }
-    Alert.alert('ສຳເລັດ', 'ປ່ຽນລະຫັດຜ່ານສຳເລັດ');
+    Alert.alert(t('common_success'), t('common_pw_changed'));
     setPwVisible(false);
     setPwCurrent(''); setPwNew(''); setPwConfirm('');
   }
@@ -218,7 +219,7 @@ export default function AccountScreen() {
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>ບັນຊີຂອງຂ້ອຍ</Text>
+        <Text style={styles.headerTitle}>{t('account_title')}</Text>
       </View>
 
       <ScrollView
@@ -242,7 +243,7 @@ export default function AccountScreen() {
           )}
           <View style={styles.profileInfo}>
             <Text style={styles.fullName}>
-              {profile?.full_name ?? 'ບໍ່ລະບຸຊື່'}
+              {profile?.full_name ?? t('account_no_name')}
             </Text>
             <Text style={styles.email}>{profile?.email ?? '—'}</Text>
             {profile?.role && (
@@ -274,7 +275,7 @@ export default function AccountScreen() {
             onPress={() => router.push('/favorites' as any)}
           >
             <Ionicons name="heart-outline" size={20} color={colors.primary} />
-            <Text style={styles.menuText}>ລາຍການທີ່ມັກ</Text>
+            <Text style={styles.menuText}>{t('tab_favorites')}</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
           </TouchableOpacity>
           <View style={styles.divider} />
@@ -283,7 +284,7 @@ export default function AccountScreen() {
             onPress={() => router.push('/history' as any)}
           >
             <Ionicons name="time-outline" size={20} color={colors.primary} />
-            <Text style={styles.menuText}>ປະຫວັດການອ່ານ</Text>
+            <Text style={styles.menuText}>{t('account_history')}</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
           </TouchableOpacity>
           <View style={styles.divider} />
@@ -292,13 +293,13 @@ export default function AccountScreen() {
             onPress={() => setPwVisible(true)}
           >
             <Ionicons name="lock-closed-outline" size={20} color={colors.primary} />
-            <Text style={styles.menuText}>ປ່ຽນລະຫັດຜ່ານ</Text>
+            <Text style={styles.menuText}>{t('account_change_pw')}</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
           </TouchableOpacity>
           <View style={styles.divider} />
           <View style={styles.menuItem}>
             <Ionicons name="moon-outline" size={20} color={colors.primary} />
-            <Text style={styles.menuText}>ຮູບແບບສີ</Text>
+            <Text style={styles.menuText}>{t('account_theme')}</Text>
             <View style={styles.themeButtons}>
               {(['light', 'system', 'dark'] as const).map((m) => (
                 <TouchableOpacity
@@ -322,16 +323,16 @@ export default function AccountScreen() {
           <View style={styles.divider} />
           <View style={styles.menuItem}>
             <Ionicons name="language-outline" size={20} color={colors.primary} />
-            <Text style={styles.menuText}>ພາສາ</Text>
+            <Text style={styles.menuText}>{t('account_language')}</Text>
             <View style={styles.themeButtons}>
-              {(['lo', 'th', 'en'] as AppLanguage[]).map((lang) => (
+              {(['lo', 'th', 'en', 'vi'] as AppLanguage[]).map((lang) => (
                 <TouchableOpacity
                   key={lang}
                   onPress={() => setLanguage(lang)}
                   style={[styles.langBtn, language === lang && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                 >
                   <Text style={[styles.langBtnText, language === lang && { color: '#fff' }]}>
-                    {lang === 'lo' ? 'ລາວ' : lang === 'th' ? 'ไทย' : 'EN'}
+                    {lang === 'lo' ? 'ລາວ' : lang === 'th' ? 'ไทย' : lang === 'en' ? 'EN' : 'VI'}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -340,7 +341,7 @@ export default function AccountScreen() {
         </View>
 
         <Button
-          title="ອອກຈາກລະບົບ"
+          title={t('account_logout')}
           onPress={handleLogout}
           loading={loading}
           variant="outline"
@@ -354,28 +355,28 @@ export default function AccountScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>ແກ້ໄຂໂປຣໄຟລ</Text>
+              <Text style={styles.modalTitle}>{t('account_edit')}</Text>
               <TouchableOpacity onPress={() => setEditVisible(false)}>
                 <Ionicons name="close" size={24} color={colors.text.primary} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalLabel}>ຊື່ເຕັມ</Text>
+            <Text style={styles.modalLabel}>{t('field_fullname')}</Text>
             <RNTextInput
               style={styles.modalInput}
               value={editName}
               onChangeText={setEditName}
-              placeholder="ຊື່ເຕັມ"
+              placeholder={t('field_fullname')}
               placeholderTextColor={colors.text.muted}
             />
-            <Text style={styles.modalLabel}>ໜ່ວຍງານ</Text>
+            <Text style={styles.modalLabel}>{t('field_org')}</Text>
             <RNTextInput
               style={styles.modalInput}
               value={editOrg}
               onChangeText={setEditOrg}
-              placeholder="ໜ່ວຍງານ"
+              placeholder={t('field_org')}
               placeholderTextColor={colors.text.muted}
             />
-            <Button title="ບັນທຶກ" onPress={saveProfile} loading={editLoading} style={{ marginTop: spacing.md }} />
+            <Button title={t('account_save')} onPress={saveProfile} loading={editLoading} style={{ marginTop: spacing.md }} />
           </View>
         </View>
       </Modal>
@@ -385,39 +386,39 @@ export default function AccountScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>ປ່ຽນລະຫັດຜ່ານ</Text>
+              <Text style={styles.modalTitle}>{t('account_change_pw')}</Text>
               <TouchableOpacity onPress={() => setPwVisible(false)}>
                 <Ionicons name="close" size={24} color={colors.text.primary} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalLabel}>ລະຫັດຜ່ານປັດຈຸບັນ</Text>
+            <Text style={styles.modalLabel}>{t('pw_current')}</Text>
             <RNTextInput
               style={styles.modalInput}
               value={pwCurrent}
               onChangeText={setPwCurrent}
-              placeholder="ລະຫັດຜ່ານປັດຈຸບັນ"
+              placeholder={t('pw_current')}
               placeholderTextColor={colors.text.muted}
               secureTextEntry
             />
-            <Text style={styles.modalLabel}>ລະຫັດຜ່ານໃໝ່</Text>
+            <Text style={styles.modalLabel}>{t('pw_new')}</Text>
             <RNTextInput
               style={styles.modalInput}
               value={pwNew}
               onChangeText={setPwNew}
-              placeholder="ຢ່າງໜ້ອຍ 8 ຕົວອັກສອນ"
+              placeholder={t('pw_min8')}
               placeholderTextColor={colors.text.muted}
               secureTextEntry
             />
-            <Text style={styles.modalLabel}>ຢືນຢັນລະຫັດຜ່ານໃໝ່</Text>
+            <Text style={styles.modalLabel}>{t('pw_confirm')}</Text>
             <RNTextInput
               style={styles.modalInput}
               value={pwConfirm}
               onChangeText={setPwConfirm}
-              placeholder="ຢືນຢັນລະຫັດຜ່ານ"
+              placeholder={t('pw_confirm_label')}
               placeholderTextColor={colors.text.muted}
               secureTextEntry
             />
-            <Button title="ປ່ຽນລະຫັດຜ່ານ" onPress={changePassword} loading={pwLoading} style={{ marginTop: spacing.md }} />
+            <Button title={t('account_change_pw')} onPress={changePassword} loading={pwLoading} style={{ marginTop: spacing.md }} />
           </View>
         </View>
       </Modal>

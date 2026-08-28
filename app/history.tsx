@@ -10,6 +10,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, radius, shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { useT } from '@/contexts/LanguageContext';
+import { TranslationKey } from '@/constants/translations';
 import { getReadingHistory, ReadingHistoryItem } from '@/lib/profile';
 import { ResearchCardSkeleton } from '@/components/ui/Skeleton';
 
@@ -23,23 +25,23 @@ type ThemeColors = ReturnType<typeof useTheme>['colors'];
 async function clearAllHistory(): Promise<void> { /* TODO: implement in lib/profile.ts */ }
 async function removeHistoryItem(_id: string): Promise<void> { /* TODO: implement in lib/profile.ts */ }
 
-function getDateLabel(dateStr: string): string {
+function getDateLabel(dateStr: string, t: (key: TranslationKey) => string): string {
   const date = new Date(dateStr);
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
-  if (date.toDateString() === today.toDateString()) return 'ມື້ນີ້';
-  if (date.toDateString() === yesterday.toDateString()) return 'ມື້ວານ';
+  if (date.toDateString() === today.toDateString()) return t('today');
+  if (date.toDateString() === yesterday.toDateString()) return t('yesterday');
   return date.toLocaleDateString('lo-LA', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 // group items by date อ่านจริง (read_at) — ไม่ใช้ published_at ของ research_items
 // เพราะนั่นคือวันที่ตีพิมพ์ ไม่เกี่ยวกับวันที่ user เปิดอ่าน
-function groupByDate(items: ReadingHistoryItem[]): { title: string; data: ReadingHistoryItem[] }[] {
+function groupByDate(items: ReadingHistoryItem[], t: (key: TranslationKey) => string): { title: string; data: ReadingHistoryItem[] }[] {
   const groups: Record<string, ReadingHistoryItem[]> = {};
   items.forEach(item => {
-    const label = getDateLabel(item.read_at);
+    const label = getDateLabel(item.read_at, t);
     if (!groups[label]) groups[label] = [];
     groups[label].push(item);
   });
@@ -60,6 +62,7 @@ function SwipeableHistoryCard({
   styles: ReturnType<typeof createStyles>;
   colors: ThemeColors;
 }) {
+  const t = useT();
   const translateX = useRef(new Animated.Value(0)).current;
   const SWIPE_THRESHOLD = -80;
 
@@ -80,10 +83,10 @@ function SwipeableHistoryCard({
   ).current;
 
   function handleRemove() {
-    Alert.alert('ລຶບອອກ', 'ທ່ານຕ້ອງການລຶບອອກຈາກປະຫວັດການອ່ານບໍ?', [
-      { text: 'ຍົກເລີກ', style: 'cancel', onPress: () => Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start() },
+    Alert.alert(t('common_delete'), t('history_remove_q'), [
+      { text: t('common_cancel'), style: 'cancel', onPress: () => Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start() },
       {
-        text: 'ລຶບ', style: 'destructive', onPress: () => {
+        text: t('common_delete'), style: 'destructive', onPress: () => {
           Animated.timing(translateX, { toValue: -400, duration: 250, useNativeDriver: true }).start(() => onRemove());
         },
       },
@@ -95,7 +98,7 @@ function SwipeableHistoryCard({
       <View style={styles.swipeBg}>
         <TouchableOpacity onPress={handleRemove} style={styles.swipeAction}>
           <Ionicons name="trash-outline" size={22} color="#fff" />
-          <Text style={styles.swipeText}>ລຶບ</Text>
+          <Text style={styles.swipeText}>{t('common_delete')}</Text>
         </TouchableOpacity>
       </View>
       <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
@@ -143,6 +146,7 @@ function SwipeableHistoryCard({
 
 export default function HistoryScreen() {
   const { colors, isDark } = useTheme();
+  const t = useT();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [items, setItems] = useState<ReadingHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,16 +173,16 @@ export default function HistoryScreen() {
   }
 
   function handleClearAll() {
-    Alert.alert('ລົບທັງໝົດ', 'ທ່ານຕ້ອງການລົບປະຫວັດການອ່ານທັງໝົດບໍ?', [
-      { text: 'ຍົກເລີກ', style: 'cancel' },
+    Alert.alert(t('history_clear'), t('history_clear_q'), [
+      { text: t('common_cancel'), style: 'cancel' },
       {
-        text: 'ລົບທັງໝົດ', style: 'destructive',
+        text: t('history_clear'), style: 'destructive',
         onPress: () => { clearAllHistory(); setItems([]); },
       },
     ]);
   }
 
-  const sections = useMemo(() => groupByDate(items), [items]);
+  const sections = useMemo(() => groupByDate(items, t), [items, t]);
 
   return (
     <View style={styles.container}>
@@ -188,10 +192,10 @@ export default function HistoryScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>ປະຫວັດການອ່ານ</Text>
+        <Text style={styles.headerTitle}>{t('history_title')}</Text>
         {items.length > 0 && (
           <TouchableOpacity onPress={handleClearAll} style={styles.clearBtn}>
-            <Text style={styles.clearText}>ລົບທັງໝົດ</Text>
+            <Text style={styles.clearText}>{t('history_clear')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -205,9 +209,9 @@ export default function HistoryScreen() {
           <View style={styles.emptyIcon}>
             <Ionicons name="time-outline" size={40} color={colors.primary} />
           </View>
-          <Text style={styles.emptyTitle}>ຍັງບໍ່ມີປະຫວັດການອ່ານ</Text>
+          <Text style={styles.emptyTitle}>{t('history_empty_title')}</Text>
           <Text style={styles.emptyText}>
-            ງານວິໄຈທີ່ທ່ານເປີດອ່ານຈະຖືກບັນທຶກໄວ້ທີ່ນີ້
+            {t('history_empty_text')}
           </Text>
         </View>
       ) : (

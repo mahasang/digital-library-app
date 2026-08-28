@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, radius, shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { useSession } from '@/hooks/useSession';
+import { useT } from '@/contexts/LanguageContext';
 import { supabase } from '@/lib/supabase';
 
 type Notification = {
@@ -43,6 +44,7 @@ const TYPE_ICONS: Record<string, string> = {
 
 export default function NotificationsScreen() {
   const { colors, isDark } = useTheme();
+  const t = useT();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const session = useSession();
   const [items, setItems] = useState<Notification[]>([]);
@@ -120,11 +122,11 @@ export default function NotificationsScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          ການແຈ້ງເຕືອນ{unreadCount > 0 ? ` (${unreadCount})` : ''}
+          {t('notif_title')}{unreadCount > 0 ? ` (${unreadCount})` : ''}
         </Text>
         {unreadCount > 0 && (
           <TouchableOpacity onPress={markAllRead}>
-            <Text style={styles.markAll}>ອ່ານທັງໝົດ</Text>
+            <Text style={styles.markAll}>{t('notif_mark_all')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -132,7 +134,7 @@ export default function NotificationsScreen() {
       {!session ? (
         <View style={styles.center}>
           <Ionicons name="notifications-off-outline" size={48} color={colors.text.muted} />
-          <Text style={styles.emptyText}>ເຂົ້າສູ່ລະບົບເພື່ອເບິ່ງການແຈ້ງເຕືອນ</Text>
+          <Text style={styles.emptyText}>{t('notif_login')}</Text>
         </View>
       ) : loading ? (
         <View style={styles.center}>
@@ -141,7 +143,7 @@ export default function NotificationsScreen() {
       ) : items.length === 0 ? (
         <View style={styles.center}>
           <Ionicons name="notifications-outline" size={48} color={colors.text.muted} />
-          <Text style={styles.emptyText}>ບໍ່ມີການແຈ້ງເຕືອນ</Text>
+          <Text style={styles.emptyText}>{t('notif_empty')}</Text>
         </View>
       ) : (
         <FlatList
