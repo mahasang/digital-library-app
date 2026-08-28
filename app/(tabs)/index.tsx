@@ -16,9 +16,25 @@ import { getResearchStats, getPublicResearch, ResearchItem } from '@/lib/researc
 const H_CARD_WIDTH = 110;
 const H_COVER_HEIGHT = 154; // ratio 1:1.4
 
-/** แปลง พ.ศ → ค.ศ */
-function toAD(year: number) {
-  return year > 2500 ? year - 543 : year;
+function relativeTime(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days <= 0) return 'ມື້ນີ້';
+  if (days < 30) return `${days} ວັນ`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} ເດືອນ`;
+  return `${Math.floor(months / 12)} ປີ`;
+}
+
+function StarRow({ score = 0 }: { score?: number }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 1, marginTop: 2 }}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <Text key={i} style={{ fontSize: 9, color: i <= Math.round(score) ? '#f59e0b' : '#d1d5db' }}>★</Text>
+      ))}
+    </View>
+  );
 }
 
 export default function HomeScreen() {
@@ -65,7 +81,14 @@ export default function HomeScreen() {
       )}
       <View style={styles.hInfo}>
         <Text style={styles.hTitle} numberOfLines={2}>{item.title_th}</Text>
-        <Text style={styles.hYear}>{toAD(item.year)}</Text>
+        <StarRow score={0} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+          <Ionicons name="eye-outline" size={9} color={colors.text.muted} />
+          <Text style={styles.hMeta}>{item.views}</Text>
+          {item.published_at ? (
+            <Text style={[styles.hMeta, { marginLeft: 2 }]}>{relativeTime(item.published_at)}</Text>
+          ) : null}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -298,10 +321,6 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       color: colors.text.primary,
       lineHeight: 15,
     },
-    hYear: {
-      fontSize: 10,
-      color: colors.text.muted,
-      marginTop: 2,
-    },
+    hMeta: { fontSize: 9, color: colors.text.muted },
   });
 }

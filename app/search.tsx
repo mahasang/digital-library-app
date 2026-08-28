@@ -21,8 +21,25 @@ const CARD_WIDTH = (SCREEN_WIDTH - SIDE_PADDING * 2 - CARD_GAP * (NUM_COLUMNS - 
 const COVER_HEIGHT = Math.round(CARD_WIDTH * 1.4);
 const PAGE_SIZE = 20;
 
-function toAD(year: number) {
-  return year > 2500 ? year - 543 : year;
+function relativeTime(dateStr: string | null): string {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days <= 0) return 'ມື້ນີ້';
+  if (days < 30) return `${days} ວັນ`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} ເດືອນ`;
+  return `${Math.floor(months / 12)} ປີ`;
+}
+
+function StarRow({ score = 0, colors }: { score?: number; colors: ReturnType<typeof useTheme>['colors'] }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 1, marginTop: 2 }}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <Text key={i} style={{ fontSize: 9, color: i <= Math.round(score) ? '#f59e0b' : colors.border }}>★</Text>
+      ))}
+    </View>
+  );
 }
 
 type Category = { id: string; name_th: string; slug: string; count?: number };
@@ -160,9 +177,14 @@ export default function SearchScreen() {
       )}
       <View style={styles.cardInfo}>
         <Text style={styles.cardTitle} numberOfLines={2}>{item.title_th}</Text>
-        {item.year ? (
-          <Text style={styles.cardYear}>{toAD(item.year)}</Text>
-        ) : null}
+        <StarRow score={0} colors={colors} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
+          <Ionicons name="eye-outline" size={9} color={colors.text.muted} />
+          <Text style={styles.cardMeta}>{item.views}</Text>
+          {item.published_at ? (
+            <Text style={[styles.cardMeta, { marginLeft: 2 }]}>{relativeTime(item.published_at)}</Text>
+          ) : null}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -425,11 +447,7 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       lineHeight: 15,
       fontWeight: '600',
     },
-    cardYear: {
-      fontSize: 10,
-      color: colors.text.muted,
-      marginTop: 2,
-    },
+    cardMeta: { fontSize: 9, color: colors.text.muted },
 
     // ── Pagination ──
     pagination: {
