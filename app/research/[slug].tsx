@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, ActivityIndicator, Share,
+  TextInput, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -12,6 +13,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useSession } from '@/hooks/useSession';
 import { getPublicResearch, getResearchBySlug, ResearchItem } from '@/lib/research';
 import { getFavorites, toggleFavorite, addReadingHistory } from '@/lib/profile';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
 import { FadeInView } from '@/components/ui/FadeInView';
 
@@ -24,17 +26,87 @@ const ACCESS_LABELS: Record<string, { label: string; color: string }> = {
   read_only:    { label: 'ອ່ານໄດ້',    color: '#3b82f6' },
   metadata_only:{ label: 'ຂໍ້ມູນດ່ວນ', color: '#f59e0b' },
   member_only:  { label: 'ສະມາຊິກ',   color: '#8b5cf6' },
+  staff_only:   { label: 'ພະນັກງານ',  color: '#6b7280' },
 };
+
+// รูปร่างตรงกับ RPC get_comments() — resolve author_name/avatar ฝั่ง DB ให้แล้ว
+// (join profiles ตรงๆ จาก client จะโดน profiles RLS บล็อกจนชื่อคนอื่นหายไป)
+type Comment = {
+  id: string;
+  content: string;
+  created_at: string;
+  user_id: string;
+  author_name: string;
+  author_avatar_url: string | null;
+};
+
+// รูปร่างตรงกับ RPC get_rating_stats() — .single() บน rpc() ที่ไม่มี generated types
+// infer เป็น {} เฉยๆ จึงต้อง cast ตรงนี้
+type RatingStats = { avg_score: number; rating_count: number };
+
+function StarRating({
+  score,
+  onRate,
+  size = 20,
+  readonly = false,
+  colors,
+}: {
+  score: number;
+  onRate?: (s: number) => void;
+  size?: number;
+  readonly?: boolean;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 4 }}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <TouchableOpacity
+          key={i}
+          onPress={() => !readonly && onRate?.(i)}
+          disabled={readonly}
+          activeOpacity={readonly ? 1 : 0.7}
+        >
+          <Text style={{ fontSize: size, color: i <= Math.round(score) ? '#f59e0b' : colors.border }}>
+            ★
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+function relativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days <= 0) return 'ມື້ນີ້';
+  if (days < 30) return `${days} ວັນ`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} ເດືອນ`;
+  return `${Math.floor(months / 12)} ປີ`;
+}
 
 export default function ResearchDetailScreen() {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const session = useSession();
   const { slug } = useLocalSearchParams<{ slug: string }>();
+
   const [item, setItem] = useState<ResearchItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [favCount, setFavCount] = useState(0);
   const [related, setRelated] = useState<ResearchItem[]>([]);
+
+  // Rating
+  const [avgRating, setAvgRating] = useState(0);
+  const [ratingCount, setRatingCount] = useState(0);
+  const [myRating, setMyRating] = useState(0);
+  const [ratingLoading, setRatingLoading] = useState(false);
+
+  // Comments
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentText, setCommentText] = useState('');
+  const [commentLoading, setCommentLoading] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -48,20 +120,61 @@ export default function ResearchDetailScreen() {
     if (!item) return;
     getFavorites().then((favs) => setIsFavorite(favs.includes(item.id)));
     addReadingHistory(item.slug);
-    // โหลด related research (same category, limit 5)
+
+    // favorites count — favorites.select RLS เห็นแค่แถวของตัวเอง ต้องใช้ RPC เพื่อนับรวมทุกคน
+    supabase
+      .rpc('get_favorites_count', { p_research_id: item.id })
+      .then(({ data }) => setFavCount(data ?? 0));
+
+    // avg rating — ratings ไม่เปิด public select ตรงๆ ต้องใช้ RPC เช่นกัน
+    supabase
+      .rpc('get_rating_stats', { p_research_id: item.id })
+      .single()
+      .then(({ data }) => {
+        const stats = data as unknown as RatingStats | null;
+        if (stats) {
+          setAvgRating(Number(stats.avg_score) ?? 0);
+          setRatingCount(stats.rating_count ?? 0);
+        }
+      });
+
+    // my rating (ถ้า login) — เป็นแถวของตัวเอง อ่านจากตารางตรงๆ ได้
+    if (session) {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+        supabase
+          .from('ratings')
+          .select('score')
+          .eq('research_id', item.id)
+          .eq('user_id', user.id)
+          .single()
+          .then(({ data }) => { if (data) setMyRating(data.score); });
+      });
+    }
+
+    // related
     const catSlug = item.research_categories[0]?.categories?.slug;
     if (catSlug) {
       getPublicResearch({ category: catSlug, limit: 6 }).then(({ data }) => {
         setRelated(data.filter(r => r.id !== item.id).slice(0, 5));
       });
     }
-  }, [item]);
+
+    // comments
+    loadComments(item.id);
+  }, [item, session]);
+
+  async function loadComments(researchId: string) {
+    const { data } = await supabase.rpc('get_comments', { p_research_id: researchId, p_limit: 20 });
+    setComments((data as unknown as Comment[]) ?? []);
+  }
 
   async function handleFavorite() {
     if (!session) { router.push('/(auth)/login' as any); return; }
     if (!item) return;
     const nowFav = await toggleFavorite(item.id);
     setIsFavorite(nowFav);
+    setFavCount(prev => nowFav ? prev + 1 : Math.max(0, prev - 1));
   }
 
   async function handleShare() {
@@ -70,6 +183,60 @@ export default function ResearchDetailScreen() {
       title: item.title_th,
       message: `${item.title_th}\n\nhttps://digital-library-sls.vercel.app/lo/research/${item.slug}`,
     });
+  }
+
+  async function handleRate(score: number) {
+    if (!session) { router.push('/(auth)/login' as any); return; }
+    if (!item) return;
+    setRatingLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setRatingLoading(false); return; }
+
+    const { error } = await supabase.from('ratings').upsert({
+      user_id: user.id,
+      research_id: item.id,
+      score,
+    }, { onConflict: 'user_id,research_id' });
+
+    if (error) {
+      setRatingLoading(false);
+      Alert.alert('ຜິດພາດ', 'ບໍ່ສາມາດບັນທຶກຄະແນນໄດ້');
+      return;
+    }
+
+    setMyRating(score);
+    // reload avg ผ่าน RPC (ratings ไม่เปิด public select ตรงๆ)
+    const { data: statsRaw } = await supabase
+      .rpc('get_rating_stats', { p_research_id: item.id })
+      .single();
+    const stats = statsRaw as unknown as RatingStats | null;
+    if (stats) {
+      setAvgRating(Number(stats.avg_score) ?? 0);
+      setRatingCount(stats.rating_count ?? 0);
+    }
+    setRatingLoading(false);
+  }
+
+  async function handleComment() {
+    if (!session) { router.push('/(auth)/login' as any); return; }
+    if (!item || !commentText.trim()) return;
+    setCommentLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setCommentLoading(false); return; }
+
+    const { error } = await supabase.from('comments').insert({
+      user_id: user.id,
+      research_id: item.id,
+      content: commentText.trim(),
+    });
+
+    if (error) {
+      Alert.alert('ຜິດພາດ', 'ບໍ່ສາມາດສົ່ງຄຳເຫັນໄດ້');
+    } else {
+      setCommentText('');
+      await loadComments(item.id);
+    }
+    setCommentLoading(false);
   }
 
   if (loading) {
@@ -101,10 +268,13 @@ export default function ResearchDetailScreen() {
   const accessInfo = ACCESS_LABELS[item.access_level];
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <StatusBar style="light" />
 
-      {/* ── Header overlay บนรูป ── */}
+      {/* ── Header overlay ── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
@@ -113,33 +283,30 @@ export default function ResearchDetailScreen() {
         <TouchableOpacity onPress={handleShare} style={styles.iconBtn}>
           <Ionicons name="share-outline" size={22} color="#fff" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleFavorite} style={styles.iconBtn}>
+        {/* Heart + count */}
+        <TouchableOpacity onPress={handleFavorite} style={styles.iconBtnFav}>
           <Ionicons
             name={isFavorite ? 'heart' : 'heart-outline'}
             size={22}
             color={isFavorite ? '#f87171' : '#fff'}
           />
+          {favCount > 0 && (
+            <Text style={styles.favCount}>{favCount}</Text>
+          )}
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <FadeInView>
-          {/* ── Cover Hero ── */}
+          {/* Cover */}
           <View style={styles.heroWrap}>
             {item.cover_image ? (
-              <Image
-                source={{ uri: item.cover_image }}
-                style={styles.cover}
-                contentFit="cover"
-                cachePolicy="memory-disk"
-                transition={300}
-              />
+              <Image source={{ uri: item.cover_image }} style={styles.cover} contentFit="cover" cachePolicy="memory-disk" transition={300} />
             ) : (
               <View style={[styles.cover, styles.coverPlaceholder]}>
                 <Ionicons name="document-text-outline" size={80} color={colors.text.muted} />
               </View>
             )}
-            {/* gradient overlay */}
             <View style={styles.heroGradient} />
           </View>
 
@@ -155,21 +322,49 @@ export default function ResearchDetailScreen() {
             <Text style={styles.title}>{item.title_th}</Text>
             {item.title_en && <Text style={styles.titleEn}>{item.title_en}</Text>}
 
-            {/* Stats */}
+            {/* Stats row: views | downloads | favorites */}
             <View style={styles.statsRow}>
               <View style={styles.stat}>
-                <Ionicons name="calendar-outline" size={15} color={colors.primary} />
-                <Text style={styles.statText}>{toAD(item.year)}</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.stat}>
                 <Ionicons name="eye-outline" size={15} color={colors.primary} />
-                <Text style={styles.statText}>{item.views} ເທື່ອ</Text>
+                <Text style={styles.statText}>{item.views}</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.stat}>
                 <Ionicons name="download-outline" size={15} color={colors.primary} />
-                <Text style={styles.statText}>{item.downloads} ເທື່ອ</Text>
+                <Text style={styles.statText}>{item.downloads}</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.stat}>
+                <Ionicons name="heart-outline" size={15} color={colors.error} />
+                <Text style={styles.statText}>{favCount}</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.stat}>
+                <Ionicons name="calendar-outline" size={15} color={colors.primary} />
+                <Text style={styles.statText}>{toAD(item.year)}</Text>
+              </View>
+            </View>
+
+            {/* Rating section */}
+            <View style={styles.ratingSection}>
+              <View style={styles.ratingLeft}>
+                <Text style={styles.ratingScore}>{avgRating > 0 ? avgRating.toFixed(1) : '—'}</Text>
+                <StarRating score={avgRating} readonly size={18} colors={colors} />
+                <Text style={styles.ratingCount}>{ratingCount} ຄະແນນ</Text>
+              </View>
+              <View style={styles.ratingRight}>
+                <Text style={styles.ratingLabel}>
+                  {session ? 'ໃຫ້ຄະແນນ:' : 'ເຂົ້າສູ່ລະບົບເພື່ອໃຫ້ຄະແນນ'}
+                </Text>
+                {session && (
+                  <StarRating
+                    score={myRating}
+                    onRate={handleRate}
+                    size={24}
+                    colors={colors}
+                  />
+                )}
+                {ratingLoading && <ActivityIndicator size="small" color={colors.primary} />}
               </View>
             </View>
 
@@ -195,21 +390,18 @@ export default function ResearchDetailScreen() {
                 <Text style={styles.sectionText}>{item.organizations.name_th}</Text>
               </View>
             )}
-
             {authors && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>ຜູ້ວິໄຈ</Text>
                 <Text style={styles.sectionText}>{authors}</Text>
               </View>
             )}
-
             {item.abstract && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>ບົດຄັດຫຍໍ້</Text>
                 <Text style={styles.sectionText}>{item.abstract}</Text>
               </View>
             )}
-
             {keywords.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>ຄຳສຳຄັນ</Text>
@@ -223,7 +415,7 @@ export default function ResearchDetailScreen() {
               </View>
             )}
 
-            {/* Related research */}
+            {/* Related */}
             {related.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>ງານວິໄຈທີ່ກ່ຽວຂ້ອງ</Text>
@@ -236,29 +428,79 @@ export default function ResearchDetailScreen() {
                       activeOpacity={0.75}
                     >
                       {r.cover_image ? (
-                        <Image
-                        source={{ uri: r.cover_image }}
-                        style={styles.relatedCover}
-                        contentFit="cover"
-                        cachePolicy="memory-disk"
-                        transition={200}
-                      />
+                        <Image source={{ uri: r.cover_image }} style={styles.relatedCover} contentFit="cover" cachePolicy="memory-disk" transition={200} />
                       ) : (
                         <View style={[styles.relatedCover, styles.relatedPlaceholder]}>
                           <Ionicons name="document-text" size={20} color={colors.primary} />
                         </View>
                       )}
                       <Text style={styles.relatedTitle} numberOfLines={2}>{r.title_th}</Text>
-                      <Text style={styles.relatedYear}>{toAD(r.year)}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
               </View>
             )}
+
+            {/* ── Comments ── */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>ຄຳເຫັນ ({comments.length})</Text>
+
+              {/* Add comment */}
+              <View style={styles.commentInput}>
+                <TextInput
+                  style={styles.commentBox}
+                  placeholder={session ? 'ຂຽນຄຳເຫັນ...' : 'ເຂົ້າສູ່ລະບົບເພື່ອຄຳເຫັນ'}
+                  placeholderTextColor={colors.text.muted}
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  multiline
+                  maxLength={500}
+                  editable={!!session}
+                />
+                <TouchableOpacity
+                  style={[styles.commentSend, (!commentText.trim() || !session) && { opacity: 0.4 }]}
+                  onPress={handleComment}
+                  disabled={!commentText.trim() || !session || commentLoading}
+                >
+                  {commentLoading
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Ionicons name="send" size={16} color="#fff" />
+                  }
+                </TouchableOpacity>
+              </View>
+
+              {/* Comment list */}
+              {comments.length === 0 ? (
+                <Text style={styles.noComment}>ຍັງບໍ່ມີຄຳເຫັນ</Text>
+              ) : (
+                comments.map(c => {
+                  const initials = c.author_name.slice(0, 2).toUpperCase();
+                  return (
+                    <View key={c.id} style={styles.commentItem}>
+                      <View style={styles.commentAvatar}>
+                        {c.author_avatar_url ? (
+                          <Image source={{ uri: c.author_avatar_url }} style={styles.avatarImg} contentFit="cover" />
+                        ) : (
+                          <Text style={styles.avatarInitials}>{initials}</Text>
+                        )}
+                      </View>
+                      <View style={styles.commentBody}>
+                        <View style={styles.commentHeader}>
+                          <Text style={styles.commentName}>{c.author_name}</Text>
+                          <Text style={styles.commentTime}>{relativeTime(c.created_at)}</Text>
+                        </View>
+                        <Text style={styles.commentText}>{c.content}</Text>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+
           </View>
         </FadeInView>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -267,7 +509,6 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     container: { flex: 1, backgroundColor: colors.background },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
 
-    // Header overlay
     header: {
       position: 'absolute',
       top: 0, left: 0, right: 0,
@@ -286,8 +527,22 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       alignItems: 'center',
       justifyContent: 'center',
     },
+    iconBtnFav: {
+      minWidth: 40, height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(0,0,0,0.35)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: 4,
+      paddingHorizontal: 10,
+    },
+    favCount: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#fff',
+    },
 
-    // Hero
     heroWrap: { position: 'relative' },
     cover: { width: '100%', height: 280 },
     coverPlaceholder: {
@@ -305,16 +560,11 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     scroll: { paddingBottom: spacing.xxl },
     content: { padding: spacing.lg, gap: spacing.md },
 
-    // Access badge
     accessBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      alignSelf: 'flex-start',
-      gap: 6,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 4,
-      borderRadius: radius.full,
-      borderWidth: 1,
+      flexDirection: 'row', alignItems: 'center',
+      alignSelf: 'flex-start', gap: 6,
+      paddingHorizontal: spacing.sm, paddingVertical: 4,
+      borderRadius: radius.full, borderWidth: 1,
     },
     accessDot: { width: 6, height: 6, borderRadius: 3 },
     accessText: { fontSize: 12, fontWeight: '600' },
@@ -322,31 +572,38 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     title: { ...typography.h2, color: colors.text.primary },
     titleEn: { ...typography.body, color: colors.text.secondary },
 
-    // Stats
     statsRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: 'row', alignItems: 'center',
       gap: spacing.sm,
       backgroundColor: colors.surface,
-      borderRadius: radius.md,
-      padding: spacing.md,
-      borderWidth: 1,
-      borderColor: colors.border,
+      borderRadius: radius.md, padding: spacing.md,
+      borderWidth: 1, borderColor: colors.border,
     },
     stat: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1, justifyContent: 'center' },
     statText: { ...typography.bodySmall, color: colors.text.secondary },
     statDivider: { width: 1, height: 16, backgroundColor: colors.border },
 
-    // PDF button
-    pdfBtn: {
+    // Rating
+    ratingSection: {
       flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: spacing.sm,
-      backgroundColor: colors.primary,
+      backgroundColor: colors.surface,
       borderRadius: radius.md,
-      paddingVertical: spacing.md,
-      ...shadows.sm,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: spacing.lg,
+      alignItems: 'center',
+    },
+    ratingLeft: { alignItems: 'center', gap: 4 },
+    ratingScore: { ...typography.h2, color: colors.text.primary },
+    ratingCount: { ...typography.caption, color: colors.text.muted },
+    ratingRight: { flex: 1, gap: 6 },
+    ratingLabel: { ...typography.caption, color: colors.text.secondary },
+
+    pdfBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: spacing.sm, backgroundColor: colors.primary,
+      borderRadius: radius.md, paddingVertical: spacing.md, ...shadows.sm,
     },
     pdfBtnText: { ...typography.label, color: '#fff', fontSize: 15 },
 
@@ -356,41 +613,65 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
 
     keywords: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
     keyword: {
-      backgroundColor: colors.primaryLight,
-      borderRadius: radius.full,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
+      backgroundColor: colors.primaryLight, borderRadius: radius.full,
+      paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
     },
     keywordText: { ...typography.caption, color: colors.primary },
 
-    // Related
     relatedScroll: { marginTop: spacing.xs },
     relatedCard: {
-      width: 100,
-      marginRight: spacing.sm,
-      backgroundColor: colors.surface,
-      borderRadius: radius.md,
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: colors.border,
+      width: 100, marginRight: spacing.sm,
+      backgroundColor: colors.surface, borderRadius: radius.md,
+      overflow: 'hidden', borderWidth: 1, borderColor: colors.border,
     },
     relatedCover: { width: 100, height: 140, backgroundColor: colors.primaryLight },
-    relatedPlaceholder: {
-      backgroundColor: colors.primaryLight,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
+    relatedPlaceholder: { alignItems: 'center', justifyContent: 'center' },
     relatedTitle: {
       fontSize: 11, fontWeight: '600',
       color: colors.text.primary,
-      padding: spacing.xs,
-      lineHeight: 15,
+      padding: spacing.xs, lineHeight: 15,
     },
-    relatedYear: {
-      fontSize: 10, color: colors.text.muted,
-      paddingHorizontal: spacing.xs,
-      paddingBottom: spacing.xs,
+
+    // Comments
+    commentInput: {
+      flexDirection: 'row', gap: spacing.sm,
+      alignItems: 'flex-end', marginTop: spacing.sm,
     },
+    commentBox: {
+      flex: 1, minHeight: 44, maxHeight: 120,
+      borderWidth: 1.5, borderColor: colors.border,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+      ...typography.body, color: colors.text.primary,
+      backgroundColor: colors.surface,
+    },
+    commentSend: {
+      width: 44, height: 44, borderRadius: 22,
+      backgroundColor: colors.primary,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    noComment: {
+      ...typography.caption, color: colors.text.muted,
+      textAlign: 'center', paddingVertical: spacing.lg,
+    },
+    commentItem: {
+      flexDirection: 'row', gap: spacing.sm,
+      paddingVertical: spacing.sm,
+      borderTopWidth: 0.5, borderTopColor: colors.border,
+    },
+    commentAvatar: {
+      width: 36, height: 36, borderRadius: 18,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center', justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    avatarImg: { width: 36, height: 36 },
+    avatarInitials: { fontSize: 13, fontWeight: '600', color: colors.primary },
+    commentBody: { flex: 1 },
+    commentHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
+    commentName: { ...typography.label, color: colors.text.primary, fontSize: 13 },
+    commentTime: { ...typography.caption, color: colors.text.muted },
+    commentText: { ...typography.bodySmall, color: colors.text.secondary, lineHeight: 20 },
 
     errorText: { ...typography.body, color: colors.text.secondary },
   });
