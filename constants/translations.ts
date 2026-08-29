@@ -184,6 +184,10 @@ export const translations = {
   hours_sat:        { lo: 'ເສົາ',               th: 'เสาร์',             en: 'Saturday',         vi: 'Thứ 7' },
   hours_sun:        { lo: 'ອາທິດ',              th: 'อาทิตย์',           en: 'Sunday',           vi: 'Chủ nhật' },
   hours_closed:     { lo: 'ປິດ',                th: 'ปิด',               en: 'Closed',           vi: 'Đóng cửa' },
+
+  // ── Google Sign-In ──
+  login_google: { lo: 'ເຂົ້າສູ່ລະບົບດ້ວຍ Google', th: 'เข้าสู่ระบบด้วย Google', en: 'Continue with Google', vi: 'Đăng nhập với Google' },
+  login_or:     { lo: 'ຫຼື',                        th: 'หรือ',                  en: 'or',                  vi: 'hoặc' },
 } as const;
 
 export type TranslationKey = keyof typeof translations;

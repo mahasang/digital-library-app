@@ -2,11 +2,14 @@ import React, { useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   KeyboardAvoidingView, Platform, Alert, TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
+import { signInWithGoogle } from '@/lib/auth';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { spacing, typography, radius } from '@/constants/theme';
@@ -20,6 +23,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   function validate() {
@@ -50,6 +54,17 @@ export default function LoginScreen() {
       t('common_forgot_msg'),
       [{ text: t('common_ok') }]
     );
+  }
+
+  async function handleGoogleLogin() {
+    setGoogleLoading(true);
+    const { error } = await signInWithGoogle();
+    setGoogleLoading(false);
+    if (error) {
+      Alert.alert(t('common_error'), error);
+      return;
+    }
+    // session จะถูก set อัตโนมัติ useSession hook จะ detect และ redirect
   }
 
   return (
@@ -116,6 +131,34 @@ export default function LoginScreen() {
             style={styles.mainBtn}
           />
 
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>{t('login_or')}</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Google Sign-In */}
+          <TouchableOpacity
+            style={styles.googleBtn}
+            onPress={handleGoogleLogin}
+            disabled={googleLoading}
+            activeOpacity={0.8}
+          >
+            {googleLoading ? (
+              <ActivityIndicator size="small" color={colors.text.primary} />
+            ) : (
+              <>
+                <Image
+                  source={{ uri: 'https://www.google.com/favicon.ico' }}
+                  style={styles.googleIcon}
+                  contentFit="contain"
+                />
+                <Text style={styles.googleBtnText}>{t('login_google')}</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
           <Button
             title={t('login_no_account')}
             onPress={() => router.push('/(auth)/register' as any)}
@@ -166,5 +209,40 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     forgotBtn: { alignSelf: 'flex-end', marginTop: -spacing.xs, marginBottom: spacing.sm },
     forgotText: { ...typography.caption, color: colors.primary },
     mainBtn: { marginTop: spacing.xs, marginBottom: spacing.sm },
+    divider: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginVertical: spacing.sm,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: colors.border,
+    },
+    dividerText: {
+      ...typography.caption,
+      color: colors.text.muted,
+    },
+    googleBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      height: 48,
+      borderRadius: radius.md,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      marginBottom: spacing.sm,
+    },
+    googleIcon: {
+      width: 20,
+      height: 20,
+    },
+    googleBtnText: {
+      ...typography.label,
+      color: colors.text.primary,
+    },
   });
 }
