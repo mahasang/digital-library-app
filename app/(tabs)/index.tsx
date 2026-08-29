@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, FlatList,
+  TouchableOpacity, FlatList, Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
@@ -11,11 +11,15 @@ import { router } from 'expo-router';
 import { spacing, typography, radius, shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { useT } from '@/contexts/LanguageContext';
+import { useSession } from '@/hooks/useSession';
 import { Card } from '@/components/ui/Card';
 import { getResearchStats, getPublicResearch, ResearchItem } from '@/lib/research';
+import { getMyProfile, UserProfile } from '@/lib/profile';
+import { supabase } from '@/lib/supabase';
 
-const H_CARD_WIDTH = 110;
-const H_COVER_HEIGHT = 154; // ratio 1:1.4
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const H_CARD_WIDTH = 140;
+const H_COVER_HEIGHT = 196; // ratio 1:1.4
 
 function relativeTime(dateStr: string | null): string {
   if (!dateStr) return '';
@@ -28,19 +32,24 @@ function relativeTime(dateStr: string | null): string {
   return `${Math.floor(months / 12)} ປີ`;
 }
 
-function StarRow({ score = 0 }: { score?: number }) {
+// รูปร่างตรงกับ RPC get_rating_stats() — .single() บน rpc() ที่ไม่มี generated types
+// infer เป็น {} เฉยๆ จึงต้อง cast ตรงนี้
+type RatingStats = { avg_score: number; rating_count: number };
+
+// แสดง rating เป็นตัวเลข เช่น "4.6 ★"
+function RatingBadge({ score, count }: { score: number; count: number }) {
+  if (count === 0) return null;
   return (
-    <View style={{ flexDirection: 'row', gap: 1, marginTop: 2 }}>
-      {[1, 2, 3, 4, 5].map(i => (
-        <Text key={i} style={{ fontSize: 9, color: i <= Math.round(score) ? '#f59e0b' : '#d1d5db' }}>★</Text>
-      ))}
-    </View>
+    <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: '600', marginTop: 2 }}>
+      {score.toFixed(1)} ★
+    </Text>
   );
 }
 
 export default function HomeScreen() {
   const { colors, isDark } = useTheme();
   const t = useT();
+  const session = useSession();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [stats, setStats] = useState({ research: 0, categories: 0, organizations: 0 });
@@ -48,52 +57,92 @@ export default function HomeScreen() {
   const [popularTotal, setPopularTotal] = useState(0);
   const [latest, setLatest] = useState<ResearchItem[]>([]);
   const [latestTotal, setLatestTotal] = useState(0);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  // rating state: researchId → { avg, count }
+  const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
 
   useEffect(() => {
     getResearchStats().then(setStats);
     getPublicResearch({ limit: 10, sort: 'views' }).then(({ data, count }) => {
       setPopular(data);
       setPopularTotal(count);
+      loadRatings(data);
     });
     getPublicResearch({ limit: 10, sort: 'latest' }).then(({ data, count }) => {
       setLatest(data);
       setLatestTotal(count);
+      loadRatings(data);
     });
   }, []);
 
-  /** Card แนวนอน ใช้ทั้ง popular และ latest */
-  const renderHCard = ({ item }: { item: ResearchItem }) => (
-    <TouchableOpacity
-      style={styles.hCard}
-      onPress={() => router.push(`/research/${item.slug}` as any)}
-      activeOpacity={0.75}
-    >
-      {item.cover_image ? (
-        <Image
-          source={{ uri: item.cover_image }}
-          style={styles.hCover}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-          transition={200}
-        />
-      ) : (
-        <View style={[styles.hCover, styles.hPlaceholder]}>
-          <Ionicons name="document-text" size={24} color={colors.primary} />
-        </View>
-      )}
-      <View style={styles.hInfo}>
-        <Text style={styles.hTitle} numberOfLines={2}>{item.title_th}</Text>
-        <StarRow score={0} />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-          <Ionicons name="eye-outline" size={9} color={colors.text.muted} />
-          <Text style={styles.hMeta}>{item.views}</Text>
-          {item.published_at ? (
-            <Text style={[styles.hMeta, { marginLeft: 2 }]}>{relativeTime(item.published_at)}</Text>
+  useEffect(() => {
+    if (session) getMyProfile().then(setProfile);
+    else setProfile(null);
+  }, [session]);
+
+  async function loadRatings(items: ResearchItem[]) {
+    for (const item of items) {
+      supabase
+        .rpc('get_rating_stats', { p_research_id: item.id })
+        .single()
+        .then(({ data }) => {
+          const stats = data as unknown as RatingStats | null;
+          if (stats) {
+            setRatings(prev => ({
+              ...prev,
+              [item.id]: {
+                avg: Number(stats.avg_score) ?? 0,
+                count: stats.rating_count ?? 0,
+              },
+            }));
+          }
+        });
+    }
+  }
+
+  const renderHCard = ({ item }: { item: ResearchItem }) => {
+    const rating = ratings[item.id];
+    return (
+      <TouchableOpacity
+        style={styles.hCard}
+        onPress={() => router.push(`/research/${item.slug}` as any)}
+        activeOpacity={0.75}
+      >
+        {item.cover_image ? (
+          <Image
+            source={{ uri: item.cover_image }}
+            style={styles.hCover}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={200}
+          />
+        ) : (
+          <View style={[styles.hCover, styles.hPlaceholder]}>
+            <Ionicons name="document-text" size={32} color={colors.primary} />
+          </View>
+        )}
+        <View style={styles.hInfo}>
+          <Text style={styles.hTitle} numberOfLines={2}>{item.title_th}</Text>
+          {rating && rating.count > 0 ? (
+            <RatingBadge score={rating.avg} count={rating.count} />
           ) : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+            <Ionicons name="eye-outline" size={9} color={colors.text.muted} />
+            <Text style={styles.hMeta}>{item.views}</Text>
+            {item.published_at ? (
+              <Text style={[styles.hMeta, { marginLeft: 2 }]}>{relativeTime(item.published_at)}</Text>
+            ) : null}
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
+
+  // Avatar / initials ของ user
+  const initials = profile?.full_name
+    ? profile.full_name.slice(0, 2).toUpperCase()
+    : profile?.email?.slice(0, 2).toUpperCase() ?? '';
 
   return (
     <View style={styles.container}>
@@ -102,7 +151,6 @@ export default function HomeScreen() {
       {/* ── Header ── */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          {/* โลโก้ */}
           <View style={styles.logoBox}>
             <Ionicons name="library" size={22} color={colors.primary} />
           </View>
@@ -111,20 +159,42 @@ export default function HomeScreen() {
             <Text style={styles.headerTitle}>{t('home_title')}</Text>
           </View>
         </View>
-        {/* ปุ่ม notifications */}
-        <TouchableOpacity
-          style={styles.notifBtn}
-          onPress={() => router.push('/notifications' as any)}
-        >
-          <Ionicons name="notifications-outline" size={22} color={colors.text.primary} />
-        </TouchableOpacity>
+
+        {/* Avatar หรือ icon ถ้าไม่ login */}
+        {session ? (
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/account' as any)}
+            activeOpacity={0.8}
+          >
+            {profile?.avatar_url ? (
+              <Image
+                source={{ uri: profile.avatar_url }}
+                style={styles.avatarImg}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+              />
+            ) : (
+              <View style={styles.avatarBox}>
+                <Text style={styles.avatarText}>{initials || '👤'}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.loginBtn}
+            onPress={() => router.push('/(auth)/login' as any)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="person-outline" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
       >
-        {/* ── Hero Banner (เล็กลง 50%) ── */}
+        {/* ── Hero Banner ── */}
         <LinearGradient
           colors={isDark ? ['#1e3a5f', '#0f172a'] : ['#185ff2', '#1248c4']}
           style={styles.hero}
@@ -143,15 +213,10 @@ export default function HomeScreen() {
               <Text style={styles.heroBtnText}>{t('home_search_btn')}</Text>
             </TouchableOpacity>
           </View>
-          <Ionicons
-            name="library"
-            size={56}
-            color="rgba(255,255,255,0.15)"
-            style={styles.heroIcon}
-          />
+          <Ionicons name="library" size={56} color="rgba(255,255,255,0.15)" style={styles.heroIcon} />
         </LinearGradient>
 
-        {/* ── Stats (เล็กลง) ── */}
+        {/* ── Stats ── */}
         <View style={styles.statsRow}>
           {[
             { label: t('stat_research'), value: stats.research.toString(), icon: 'document-text-outline' },
@@ -220,7 +285,6 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
 
-    // ── Header ──
     header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -238,8 +302,7 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       gap: spacing.sm,
     },
     logoBox: {
-      width: 40,
-      height: 40,
+      width: 40, height: 40,
       borderRadius: radius.md,
       backgroundColor: colors.primaryLight,
       alignItems: 'center',
@@ -247,9 +310,23 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     },
     greeting: { ...typography.caption, color: colors.text.secondary },
     headerTitle: { ...typography.h3, color: colors.text.primary },
-    notifBtn: {
-      width: 44, height: 44,
-      borderRadius: radius.md,
+
+    // Avatar
+    avatarImg: {
+      width: 40, height: 40,
+      borderRadius: 20,
+    },
+    avatarBox: {
+      width: 40, height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+    loginBtn: {
+      width: 40, height: 40,
+      borderRadius: 20,
       backgroundColor: colors.primaryLight,
       alignItems: 'center',
       justifyContent: 'center',
@@ -257,7 +334,6 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
 
     scroll: { padding: spacing.md, gap: spacing.md },
 
-    // ── Hero (เล็กลง 50%) ──
     hero: {
       borderRadius: radius.xl,
       paddingHorizontal: spacing.md,
@@ -277,24 +353,13 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       marginTop: spacing.xs,
     },
     heroBtnText: { fontSize: 12, fontWeight: '600', color: '#fff' },
-    heroIcon: {
-      position: 'absolute',
-      right: -8,
-      top: -8,
-    },
+    heroIcon: { position: 'absolute', right: -8, top: -8 },
 
-    // ── Stats (เล็กลง) ──
     statsRow: { flexDirection: 'row', gap: spacing.sm },
-    statCard: {
-      flex: 1,
-      alignItems: 'center',
-      gap: 2,
-      padding: spacing.sm,
-    },
+    statCard: { flex: 1, alignItems: 'center', gap: 2, padding: spacing.sm },
     statValue: { ...typography.h3, color: colors.primary },
     statLabel: { fontSize: 10, color: colors.text.secondary, textAlign: 'center' },
 
-    // ── Section ──
     section: {},
     sectionHeader: {
       flexDirection: 'row',
@@ -305,7 +370,6 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     sectionTitle: { ...typography.h3, color: colors.text.primary },
     seeAll: { ...typography.bodySmall, color: colors.primary },
 
-    // ── Horizontal card ──
     hList: { paddingBottom: spacing.xs },
     hCard: {
       width: H_CARD_WIDTH,
@@ -322,19 +386,15 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       backgroundColor: colors.primaryLight,
     },
     hPlaceholder: {
-      backgroundColor: colors.primaryLight,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    hInfo: {
-      padding: spacing.xs,
-      paddingBottom: 6,
-    },
+    hInfo: { padding: spacing.sm, paddingBottom: 8 },
     hTitle: {
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: '600',
       color: colors.text.primary,
-      lineHeight: 15,
+      lineHeight: 16,
     },
     hMeta: { fontSize: 9, color: colors.text.muted },
   });

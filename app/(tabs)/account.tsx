@@ -55,6 +55,12 @@ export default function AccountScreen() {
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <View style={styles.header}>
           <Text style={styles.headerTitle}>{t('tab_settings')}</Text>
+          <TouchableOpacity
+            onPress={() => router.push('/notifications' as any)}
+            style={styles.notifBtn}
+          >
+            <Ionicons name="notifications-outline" size={22} color={colors.primary} />
+          </TouchableOpacity>
         </View>
         <ScrollView contentContainerStyle={styles.scroll}>
           {/* Settings card สำหรับ guest */}
@@ -220,6 +226,12 @@ export default function AccountScreen() {
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('account_title')}</Text>
+        <TouchableOpacity
+          onPress={() => router.push('/notifications' as any)}
+          style={styles.notifBtn}
+        >
+          <Ionicons name="notifications-outline" size={22} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -430,6 +442,9 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.xxl,
       paddingBottom: spacing.md,
@@ -438,6 +453,13 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderBottomColor: colors.border,
     },
     headerTitle: { ...typography.h3, color: colors.text.primary },
+    notifBtn: {
+      width: 44, height: 44,
+      borderRadius: radius.md,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     scroll: { padding: spacing.lg, gap: spacing.md },
     fadeGroup: { gap: spacing.md },
     profileCard: {
