@@ -50,9 +50,13 @@ function SwipeableCard({
       },
       onPanResponderRelease: (_, g) => {
         if (g.dx < SWIPE_THRESHOLD) {
-          // snap open then confirm
+          // swipe ซ้ายเกิน threshold → snap open
           Animated.timing(translateX, { toValue: -90, duration: 150, useNativeDriver: true }).start();
+        } else if (g.dx > 20) {
+          // swipe ขวา → ปิด
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
         } else {
+          // ไม่ถึง threshold → spring กลับ
           Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
         }
       },
@@ -80,7 +84,14 @@ function SwipeableCard({
         </TouchableOpacity>
       </View>
       {/* Card */}
-      <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
+      <Animated.View
+        style={{ transform: [{ translateX }] }}
+        {...panResponder.panHandlers}
+        onStartShouldSetResponder={() => (translateX as any)._value < -20}
+        onResponderGrant={() => {
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+        }}
+      >
         <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
           <View style={styles.coverArea}>
             {item.cover_image ? (
