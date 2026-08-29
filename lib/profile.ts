@@ -141,3 +141,24 @@ export async function getReadingHistory(): Promise<ReadingHistoryItem[]> {
     })
     .map((row) => ({ ...(row.research_items as ResearchItem), read_at: row.read_at }));
 }
+
+// ลบ reading_history ทั้งหมดของ user
+export async function clearAllHistory(): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase
+    .from('reading_history')
+    .delete()
+    .eq('user_id', user.id);
+}
+
+// ลบ reading_history ของ research_item หนึ่งชิ้น (ลบทุก rows ของ user+research นั้น)
+export async function removeHistoryItem(researchId: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase
+    .from('reading_history')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('research_id', researchId);
+}

@@ -12,7 +12,7 @@ import { spacing, typography, radius, shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { useT } from '@/contexts/LanguageContext';
 import { TranslationKey } from '@/constants/translations';
-import { getReadingHistory, ReadingHistoryItem } from '@/lib/profile';
+import { getReadingHistory, ReadingHistoryItem, clearAllHistory, removeHistoryItem } from '@/lib/profile';
 import { ResearchCardSkeleton } from '@/components/ui/Skeleton';
 
 function toAD(year: number) {
@@ -20,10 +20,6 @@ function toAD(year: number) {
 }
 
 type ThemeColors = ReturnType<typeof useTheme>['colors'];
-
-// stub — implement ใน Phase หลัง
-async function clearAllHistory(): Promise<void> { /* TODO: implement in lib/profile.ts */ }
-async function removeHistoryItem(_id: string): Promise<void> { /* TODO: implement in lib/profile.ts */ }
 
 function getDateLabel(dateStr: string, t: (key: TranslationKey) => string): string {
   const date = new Date(dateStr);
