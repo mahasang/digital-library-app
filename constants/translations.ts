@@ -168,6 +168,22 @@ export const translations = {
   common_pw_req:      { lo: 'ກະລຸນາປ້ອນລະຫັດຜ່ານປັດຈຸບັນ', th: 'กรุณากรอกรหัสผ่านปัจจุบัน', en: 'Please enter current password', vi: 'Vui lòng nhập mật khẩu hiện tại' },
   common_comment_error: { lo: 'ບໍ່ສາມາດສົ່ງຄຳເຫັນໄດ້', th: 'ไม่สามารถส่งความคิดเห็นได้', en: 'Cannot send comment', vi: 'Không thể gửi bình luận' },
   common_rating_error:{ lo: 'ບໍ່ສາມາດບັນທຶກຄະແນນໄດ້', th: 'ไม่สามารถบันทึกคะแนนได้', en: 'Cannot save rating', vi: 'Không thể lưu đánh giá' },
+
+  // ── Contact ──
+  contact_title:    { lo: 'ຕິດຕໍ່ເຮົາ',        th: 'ติดต่อเรา',         en: 'Contact Us',       vi: 'Liên hệ chúng tôi' },
+  contact_sub:      { lo: 'ມີຄຳຖາມຫຼືຕ້ອງການຊ່ວຍເຫຼືອ?', th: 'มีคำถามหรือต้องการความช่วยเหลือ?', en: 'Have questions or need help?', vi: 'Có câu hỏi hoặc cần hỗ trợ?' },
+  contact_channels: { lo: 'ຊ່ອງທາງຕິດຕໍ່',    th: 'ช่องทางติดต่อ',     en: 'Contact channels', vi: 'Kênh liên hệ' },
+  contact_hours:    { lo: 'ເວລາເຮັດວຽກ',       th: 'เวลาทำการ',         en: 'Working hours',    vi: 'Giờ làm việc' },
+  contact_location: { lo: 'ທີ່ຕັ້ງ',            th: 'ที่ตั้ง',           en: 'Location',         vi: 'Địa chỉ' },
+  contact_open_map: { lo: 'ເປີດໃນແຜນທີ່ →',    th: 'เปิดในแผนที่ →',    en: 'Open in maps →',   vi: 'Mở bản đồ →' },
+  contact_vientiane:{ lo: 'ວຽງຈັນ, ສປປ ລາວ',   th: 'เวียงจันทน์, สปป.ลาว', en: 'Vientiane, Lao PDR', vi: 'Viêng Chăn, CHDCND Lào' },
+  contact_email:    { lo: 'ອີເມວ',              th: 'อีเมล',             en: 'Email',            vi: 'Email' },
+  contact_phone:    { lo: 'ໂທລະສັບ',            th: 'โทรศัพท์',          en: 'Phone',            vi: 'Điện thoại' },
+  contact_website:  { lo: 'ເວັບໄຊ',             th: 'เว็บไซต์',          en: 'Website',          vi: 'Website' },
+  hours_mon_fri:    { lo: 'ຈັນ – ສຸກ',          th: 'จันทร์ – ศุกร์',    en: 'Mon – Fri',        vi: 'Thứ 2 – Thứ 6' },
+  hours_sat:        { lo: 'ເສົາ',               th: 'เสาร์',             en: 'Saturday',         vi: 'Thứ 7' },
+  hours_sun:        { lo: 'ອາທິດ',              th: 'อาทิตย์',           en: 'Sunday',           vi: 'Chủ nhật' },
+  hours_closed:     { lo: 'ປິດ',                th: 'ปิด',               en: 'Closed',           vi: 'Đóng cửa' },
 } as const;
 
 export type TranslationKey = keyof typeof translations;

@@ -3,24 +3,26 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'r
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
+import { useT } from '@/contexts/LanguageContext';
 import { spacing, typography, radius, shadows } from '@/constants/theme';
 
 export default function ContactScreen() {
   const { colors } = useTheme();
+  const t = useT();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const contacts = [
-    { icon: 'mail-outline',     title: 'ອີເມວ',     sub: 'info@digitallibrary.la',            action: () => Linking.openURL('mailto:info@digitallibrary.la') },
-    { icon: 'call-outline',     title: 'ໂທລະສັບ',   sub: '+856 20 XXXX XXXX',                 action: () => Linking.openURL('tel:+85620XXXXXXXX') },
-    { icon: 'globe-outline',    title: 'ເວັບໄຊ',    sub: 'digital-library-sls.vercel.app',    action: () => Linking.openURL('https://digital-library-sls.vercel.app') },
+    { icon: 'mail-outline',     title: t('contact_email'),   sub: 'info@digitallibrary.la',            action: () => Linking.openURL('mailto:info@digitallibrary.la') },
+    { icon: 'call-outline',     title: t('contact_phone'),   sub: '+856 20 XXXX XXXX',                 action: () => Linking.openURL('tel:+85620XXXXXXXX') },
+    { icon: 'globe-outline',    title: t('contact_website'), sub: 'digital-library-sls.vercel.app',    action: () => Linking.openURL('https://digital-library-sls.vercel.app') },
     { icon: 'logo-facebook',    title: 'Facebook',  sub: 'Digital Library Lao',               action: () => Linking.openURL('https://facebook.com') },
     { icon: 'chatbubble-outline',title: 'LINE',      sub: '@digitallibrary',                   action: () => Linking.openURL('https://line.me') },
   ];
 
   const hours = [
-    { day: 'ຈັນ – ສຸກ', time: '08:00 – 17:00' },
-    { day: 'ເສົາ',       time: '08:00 – 12:00' },
-    { day: 'ອາທິດ',     time: 'ປິດ' },
+    { day: t('hours_mon_fri'), time: '08:00 – 17:00' },
+    { day: t('hours_sat'),     time: '08:00 – 12:00' },
+    { day: t('hours_sun'),     time: t('hours_closed') },
   ];
 
   return (
@@ -28,14 +30,14 @@ export default function ContactScreen() {
       <StatusBar style="light" />
 
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>ຕິດຕໍ່ເຮົາ</Text>
-        <Text style={styles.headerSub}>ມີຄຳຖາມຫຼືຕ້ອງການຊ່ວຍເຫຼືອ?</Text>
+        <Text style={styles.headerTitle}>{t('contact_title')}</Text>
+        <Text style={styles.headerSub}>{t('contact_sub')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* ── ช่องทางติดต่อ ── */}
-        <Text style={styles.sectionLabel}>ຊ່ອງທາງຕິດຕໍ່</Text>
+        <Text style={styles.sectionLabel}>{t('contact_channels')}</Text>
         <View style={styles.card}>
           {contacts.map((c, i) => (
             <Fragment key={c.title}>
@@ -55,7 +57,7 @@ export default function ContactScreen() {
         </View>
 
         {/* ── เวลาทำการ ── */}
-        <Text style={styles.sectionLabel}>ເວລາເຮັດວຽກ</Text>
+        <Text style={styles.sectionLabel}>{t('contact_hours')}</Text>
         <View style={styles.card}>
           {hours.map((h, i) => (
             <Fragment key={h.day}>
@@ -72,7 +74,7 @@ export default function ContactScreen() {
         </View>
 
         {/* ── ที่อยู่ / Map ── */}
-        <Text style={styles.sectionLabel}>ທີ່ຕັ້ງ</Text>
+        <Text style={styles.sectionLabel}>{t('contact_location')}</Text>
         <TouchableOpacity
           style={styles.mapCard}
           onPress={() => Linking.openURL('https://maps.google.com/?q=Vientiane,Laos')}
@@ -86,8 +88,8 @@ export default function ContactScreen() {
               <Ionicons name="location-outline" size={20} color={colors.primary} />
             </View>
             <View style={styles.itemText}>
-              <Text style={styles.itemTitle}>ວຽງຈັນ, ສປປ ລາວ</Text>
-              <Text style={styles.itemSub}>ເປີດໃນແຜນທີ່ →</Text>
+              <Text style={styles.itemTitle}>{t('contact_vientiane')}</Text>
+              <Text style={styles.itemSub}>{t('contact_open_map')}</Text>
             </View>
           </View>
         </TouchableOpacity>
