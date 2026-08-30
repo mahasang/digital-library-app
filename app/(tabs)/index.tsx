@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, FlatList, Dimensions,
+  TouchableOpacity, FlatList, Dimensions, RefreshControl,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
@@ -46,6 +46,21 @@ function RatingBadge({ score, count }: { score: number; count: number }) {
   );
 }
 
+function SkeletonCard({ colors }: { colors: any }) {
+  return (
+    <View style={{
+      width: H_CARD_WIDTH, borderRadius: 8,
+      backgroundColor: colors.border, overflow: 'hidden',
+    }}>
+      <View style={{ width: H_CARD_WIDTH, height: H_COVER_HEIGHT, backgroundColor: colors.border }} />
+      <View style={{ padding: 8, gap: 4 }}>
+        <View style={{ height: 10, backgroundColor: colors.primaryLight, borderRadius: 4 }} />
+        <View style={{ height: 10, width: '60%', backgroundColor: colors.primaryLight, borderRadius: 4 }} />
+      </View>
+    </View>
+  );
+}
+
 export default function HomeScreen() {
   const { colors, isDark } = useTheme();
   const t = useT();
@@ -61,6 +76,7 @@ export default function HomeScreen() {
 
   // rating state: researchId → { avg, count }
   const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     try {
@@ -84,6 +100,22 @@ export default function HomeScreen() {
     if (session) getMyProfile().then(setProfile);
     else setProfile(null);
   }, [session]);
+
+  async function onRefresh() {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        getResearchStats().then(setStats),
+        getPublicResearch({ limit: 10, sort: 'views' }).then(({ data, count }) => {
+          setPopular(data); setPopularTotal(count); loadRatings(data);
+        }),
+        getPublicResearch({ limit: 10, sort: 'latest' }).then(({ data, count }) => {
+          setLatest(data); setLatestTotal(count); loadRatings(data);
+        }),
+      ]);
+    } catch (err) { console.error(err); }
+    setRefreshing(false);
+  }
 
   async function loadRatings(items: ResearchItem[]) {
     const results = await Promise.all(
@@ -200,6 +232,9 @@ export default function HomeScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        }
       >
         {/* ── Hero Banner ── */}
         <LinearGradient
@@ -239,16 +274,20 @@ export default function HomeScreen() {
         </View>
 
         {/* ── ລາຍການຍອດນິຍົມ ── */}
-        {popular.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{t('home_popular')}</Text>
-              {popularTotal > 10 && (
-                <TouchableOpacity onPress={() => router.push('/(tabs)/research' as any)}>
-                  <Text style={styles.seeAll}>{t('home_see_more')}</Text>
-                </TouchableOpacity>
-              )}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>{t('home_popular')}</Text>
+            {popularTotal > 10 && (
+              <TouchableOpacity onPress={() => router.push('/(tabs)/research' as any)}>
+                <Text style={styles.seeAll}>{t('home_see_more')}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {popular.length === 0 ? (
+            <View style={{ flexDirection: 'row', gap: spacing.sm, paddingLeft: spacing.xs }}>
+              {[1,2,3,4,5].map(i => <SkeletonCard key={i} colors={colors} />)}
             </View>
+          ) : (
             <FlatList
               data={popular}
               keyExtractor={(item) => item.id}
@@ -258,20 +297,24 @@ export default function HomeScreen() {
               contentContainerStyle={styles.hList}
               ItemSeparatorComponent={() => <View style={{ width: spacing.sm }} />}
             />
-          </View>
-        )}
+          )}
+        </View>
 
         {/* ── ງານວິໄຈລ່າສຸດ ── */}
-        {latest.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{t('home_latest')}</Text>
-              {latestTotal > 10 && (
-                <TouchableOpacity onPress={() => router.push('/(tabs)/research' as any)}>
-                  <Text style={styles.seeAll}>{t('home_see_more')}</Text>
-                </TouchableOpacity>
-              )}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>{t('home_latest')}</Text>
+            {latestTotal > 10 && (
+              <TouchableOpacity onPress={() => router.push('/(tabs)/research' as any)}>
+                <Text style={styles.seeAll}>{t('home_see_more')}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {latest.length === 0 ? (
+            <View style={{ flexDirection: 'row', gap: spacing.sm, paddingLeft: spacing.xs }}>
+              {[1,2,3,4,5].map(i => <SkeletonCard key={i} colors={colors} />)}
             </View>
+          ) : (
             <FlatList
               data={latest}
               keyExtractor={(item) => item.id}
@@ -281,8 +324,8 @@ export default function HomeScreen() {
               contentContainerStyle={styles.hList}
               ItemSeparatorComponent={() => <View style={{ width: spacing.sm }} />}
             />
-          </View>
-        )}
+          )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -350,7 +393,7 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     },
     heroContent: { gap: 4 },
     heroTitle: { ...typography.h3, color: '#fff' },
-    heroSubtitle: { ...typography.caption, color: 'rgba(255,255,255,0.85)' },
+    heroSubtitle: { ...typography.caption, color: 'rgba(255,255,255,0.95)' },
     heroBtn: {
       alignSelf: 'flex-start',
       backgroundColor: 'rgba(255,255,255,0.2)',
