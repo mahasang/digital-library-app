@@ -5,7 +5,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
@@ -20,6 +20,7 @@ export default function LoginScreen() {
   const { colors, isDark } = useTheme();
   const t = useT();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { confirmed } = useLocalSearchParams<{ confirmed?: string }>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -96,6 +97,12 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.form}>
+          {confirmed === '1' && (
+            <View style={styles.successBanner}>
+              <Text style={styles.successBannerText}>{t('auth_email_confirmed')}</Text>
+            </View>
+          )}
+
           <Text style={styles.title}>{t('login_title')}</Text>
           <Text style={styles.subtitle}>{t('login_subtitle')}</Text>
 
@@ -206,6 +213,17 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     },
     title: { ...typography.h2, color: colors.text.primary, marginBottom: spacing.xs },
     subtitle: { ...typography.body, color: colors.text.secondary, marginBottom: spacing.lg },
+    successBanner: {
+      backgroundColor: colors.primaryLight,
+      borderRadius: radius.md,
+      padding: spacing.sm,
+      marginBottom: spacing.md,
+    },
+    successBannerText: {
+      ...typography.bodySmall,
+      color: colors.primary,
+      textAlign: 'center',
+    },
     forgotBtn: { alignSelf: 'flex-end', marginTop: -spacing.xs, marginBottom: spacing.sm },
     forgotText: { ...typography.caption, color: colors.primary },
     mainBtn: { marginTop: spacing.xs, marginBottom: spacing.sm },

@@ -188,6 +188,12 @@ export const translations = {
   // ── Google Sign-In ──
   login_google: { lo: 'ເຂົ້າສູ່ລະບົບດ້ວຍ Google', th: 'เข้าสู่ระบบด้วย Google', en: 'Continue with Google', vi: 'Đăng nhập với Google' },
   login_or:     { lo: 'ຫຼື',                        th: 'หรือ',                  en: 'or',                  vi: 'hoặc' },
+
+  // ── Email confirmation deep link ──
+  auth_verifying:       { lo: 'ກຳລັງກວດສອບ...',                        th: 'กำลังตรวจสอบ...',                  en: 'Verifying...',              vi: 'Đang xác minh...' },
+  auth_verified:        { lo: 'ຢືນຢັນສຳເລັດ',                          th: 'ยืนยันสำเร็จ',                     en: 'Verified!',                 vi: 'Xác nhận thành công!' },
+  auth_verify_failed:   { lo: 'ການຢືນຢັນລົ້ມເຫລວ',                     th: 'การยืนยันล้มเหลว',                 en: 'Verification failed',       vi: 'Xác nhận thất bại' },
+  auth_email_confirmed: { lo: 'ຢືນຢັນອີເມວສຳເລັດ ກະລຸນາເຂົ້າສູ່ລະບົບ', th: 'ยืนยันอีเมลสำเร็จ กรุณาเข้าสู่ระบบ', en: 'Email confirmed. Please sign in.', vi: 'Xác nhận email thành công. Vui lòng đăng nhập.' },
 } as const;
 
 export type TranslationKey = keyof typeof translations;

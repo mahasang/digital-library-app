@@ -6,6 +6,7 @@ import {
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import * as AuthSession from 'expo-auth-session';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -40,12 +41,32 @@ export default function RegisterScreen() {
     if (Object.keys(e).length > 0) { setErrors(e); return; }
     setLoading(true);
     setErrors({});
-    const { error } = await supabase.auth.signUp({ email: email.trim(), password });
+
+    // redirect URI เดียวกับที่ signInWithGoogle() ใช้ (ดู lib/auth.ts) — ทำให้
+    // ลิงก์ยืนยันอีเมลจาก Supabase เปิด App ผ่าน deep link แทนที่จะเปิด Web URL
+    const redirectUri = AuthSession.makeRedirectUri({
+      scheme: 'digitallibraryapp',
+      path: 'auth/callback',
+    });
+
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { emailRedirectTo: redirectUri },
+    });
     setLoading(false);
     if (error) {
       Alert.alert(t('register_fail'), 'ອີເມວນີ້ອາດຖືກໃຊ້ແລ້ວ ຫຼື ເກີດຂໍ້ຜິດພາດ');
       return;
     }
+
+    // ถ้า Supabase ส่ง session กลับมาทันที = ปิดการยืนยันอีเมลไว้ (ไม่ใช่ค่า
+    // เริ่มต้นของ project นี้ แต่กันไว้เผื่อเปลี่ยนการตั้งค่าในอนาคต)
+    if (data.session) {
+      router.replace('/(tabs)');
+      return;
+    }
+
     Alert.alert(
       t('register_success'),
       t('register_verify'),
