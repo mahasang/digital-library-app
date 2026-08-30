@@ -37,16 +37,6 @@ function relativeTime(dateStr: string | null): string {
   return `${Math.floor(months / 12)} ປີ`;
 }
 
-function StarRow({ score = 0, colors }: { score?: number; colors: ReturnType<typeof useTheme>['colors'] }) {
-  return (
-    <View style={{ flexDirection: 'row', gap: 1, marginTop: 2 }}>
-      {[1, 2, 3, 4, 5].map(i => (
-        <Text key={i} style={{ fontSize: 9, color: i <= Math.round(score) ? '#f59e0b' : colors.border }}>★</Text>
-      ))}
-    </View>
-  );
-}
-
 // 3 หมวดหมู่โดดเด่น (slug, ชื่อภาษาลาว)
 const FEATURED_CATEGORIES = [
   { slug: 'science',     name: 'ວິທະຍາສາດພື້ນຖານ' },
@@ -122,7 +112,6 @@ export default function ShelfScreen() {
       )}
       <View style={styles.hInfo}>
         <Text style={styles.hTitle} numberOfLines={2}>{item.title_th}</Text>
-        <StarRow score={0} colors={colors} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
           <Ionicons name="eye-outline" size={9} color={colors.text.muted} />
           <Text style={styles.hMeta}>{item.views}</Text>
@@ -264,7 +253,6 @@ export default function ShelfScreen() {
                       )}
                       <View style={styles.cardInfo}>
                         <Text style={styles.bookTitle} numberOfLines={2}>{item.title_th}</Text>
-                        <StarRow score={0} colors={colors} />
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
                           <Ionicons name="eye-outline" size={9} color={colors.text.muted} />
                           <Text style={styles.hMeta}>{item.views}</Text>
@@ -323,7 +311,7 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
 
     // ── Section ──
     section: {
-      marginTop: spacing.md,
+      marginTop: spacing.lg,
     },
     sectionHeader: {
       flexDirection: 'row',
@@ -340,11 +328,10 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     hCard: {
       width: H_CARD_WIDTH,
       backgroundColor: colors.surface,
-      borderRadius: radius.md,
+      borderRadius: radius.lg,
       overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: colors.border,
-      ...shadows.sm,
+      borderWidth: 0,
+      ...shadows.md,
     },
     hCover: {
       width: H_CARD_WIDTH,
@@ -376,11 +363,10 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     },
     bookCard: {
       backgroundColor: colors.surface,
-      borderRadius: radius.md,
+      borderRadius: radius.lg,
       overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: colors.border,
-      ...shadows.sm,
+      borderWidth: 0,
+      ...shadows.md,
     },
     bookCover: { width: '100%', backgroundColor: colors.primaryLight },
     bookPlaceholder: {

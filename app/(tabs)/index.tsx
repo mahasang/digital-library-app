@@ -163,16 +163,18 @@ export default function HomeScreen() {
         )}
         <View style={styles.hInfo}>
           <Text style={styles.hTitle} numberOfLines={2}>{item.title_th}</Text>
-          {rating && rating.count > 0 ? (
+          {rating && rating.count > 0 && (
             <RatingBadge score={rating.avg} count={rating.count} />
-          ) : null}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-            <Ionicons name="eye-outline" size={9} color={colors.text.muted} />
-            <Text style={styles.hMeta}>{item.views}</Text>
-            {item.published_at ? (
-              <Text style={[styles.hMeta, { marginLeft: 2 }]}>{relativeTime(item.published_at)}</Text>
-            ) : null}
-          </View>
+          )}
+          {item.views > 0 && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+              <Ionicons name="eye-outline" size={9} color={colors.text.muted} />
+              <Text style={styles.hMeta}>{item.views}</Text>
+              {item.published_at ? (
+                <Text style={[styles.hMeta, { marginLeft: 2 }]}>{relativeTime(item.published_at)}</Text>
+              ) : null}
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -266,7 +268,9 @@ export default function HomeScreen() {
             { label: t('stat_org'), value: stats.organizations.toString(), icon: 'business-outline' },
           ].map((stat) => (
             <Card key={stat.label} style={styles.statCard}>
-              <Ionicons name={stat.icon as any} size={18} color={colors.primary} />
+              <View style={styles.statIconCircle}>
+                <Ionicons name={stat.icon as any} size={18} color={colors.primary} />
+              </View>
               <Text style={styles.statValue}>{stat.value}</Text>
               <Text style={styles.statLabel}>{stat.label}</Text>
             </Card>
@@ -403,10 +407,27 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       marginTop: spacing.xs,
     },
     heroBtnText: { fontSize: 12, fontWeight: '600', color: '#fff' },
-    heroIcon: { position: 'absolute', right: -8, top: -8 },
+    heroIcon: { position: 'absolute', right: -8, top: -8, opacity: 0.12 },
 
     statsRow: { flexDirection: 'row', gap: spacing.sm },
-    statCard: { flex: 1, alignItems: 'center', gap: 2, padding: spacing.sm },
+    statCard: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 4,
+      padding: spacing.sm,
+      backgroundColor: colors.primaryLight,
+      borderRadius: radius.lg,
+      borderWidth: 0,
+    },
+    statIconCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 2,
+    },
     statValue: { ...typography.h3, color: colors.primary },
     statLabel: { fontSize: 10, color: colors.text.secondary, textAlign: 'center' },
 
@@ -417,18 +438,23 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       alignItems: 'center',
       marginBottom: spacing.sm,
     },
-    sectionTitle: { ...typography.h3, color: colors.text.primary },
+    sectionTitle: {
+      ...typography.h3,
+      color: colors.text.primary,
+      paddingLeft: spacing.sm,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+    },
     seeAll: { ...typography.bodySmall, color: colors.primary },
 
     hList: { paddingBottom: spacing.xs },
     hCard: {
       width: H_CARD_WIDTH,
       backgroundColor: colors.surface,
-      borderRadius: radius.md,
+      borderRadius: radius.lg,
       overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: colors.border,
-      ...shadows.sm,
+      borderWidth: 0,
+      ...shadows.md,
     },
     hCover: {
       width: H_CARD_WIDTH,
