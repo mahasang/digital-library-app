@@ -82,23 +82,26 @@ export default function HomeScreen() {
   }, [session]);
 
   async function loadRatings(items: ResearchItem[]) {
-    for (const item of items) {
-      supabase
-        .rpc('get_rating_stats', { p_research_id: item.id })
-        .single()
-        .then(({ data }) => {
-          const stats = data as unknown as RatingStats | null;
-          if (stats) {
-            setRatings(prev => ({
-              ...prev,
-              [item.id]: {
-                avg: Number(stats.avg_score) ?? 0,
-                count: stats.rating_count ?? 0,
-              },
-            }));
-          }
-        });
-    }
+    const results = await Promise.all(
+      items.map(item =>
+        supabase
+          .rpc('get_rating_stats', { p_research_id: item.id })
+          .single()
+          .then(({ data }) => ({ id: item.id, data: data as unknown as RatingStats | null }))
+      )
+    );
+    setRatings(prev => {
+      const next = { ...prev };
+      for (const { id, data: stats } of results) {
+        if (stats) {
+          next[id] = {
+            avg: Number(stats.avg_score) ?? 0,
+            count: stats.rating_count ?? 0,
+          };
+        }
+      }
+      return next;
+    });
   }
 
   const renderHCard = ({ item }: { item: ResearchItem }) => {
