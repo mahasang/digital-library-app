@@ -1,0 +1,715 @@
+# Mobile App — Phase C: Research Detail (ratings, favorites count, comments)
+
+## ขอบเขต
+- `app/research/[slug].tsx` — full replace
+- ห้ามแตะไฟล์อื่น
+
+---
+
+## สิ่งที่เปลี่ยน
+
+1. **Stats row** — เพิ่ม favorites_count (❤️) เป็น stat ที่ 4
+2. **Favorites count บน header** — แสดงตัวเลขใต้ heart icon
+3. **Rating section** — ดึง avg rating จาก `ratings` table + ให้ user กดให้คะแนน 1-5 ดาว
+4. **Comments section** — แสดง comments จาก `comments` table + กล่อง add comment
+5. **ลบ toAD ออกจาก related card** — ไม่แสดงปีใน related card (consistent กับ Phase B)
+
+---
+
+## โค้ดเต็ม `app/research/[slug].tsx`
+
+```tsx
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView,
+  TouchableOpacity, ActivityIndicator, Share,
+  TextInput, KeyboardAvoidingView, Platform, Alert,
+} from 'react-native';
+import { Image } from 'expo-image';
+import { useLocalSearchParams, router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+import { spacing, typography, radius, shadows } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import { useSession } from '@/hooks/useSession';
+import { getPublicResearch, getResearchBySlug, ResearchItem } from '@/lib/research';
+import { getFavorites, toggleFavorite, addReadingHistory } from '@/lib/profile';
+import { supabase } from '@/lib/supabase';
+import { Button } from '@/components/ui/Button';
+import { FadeInView } from '@/components/ui/FadeInView';
+
+function toAD(year: number) {
+  return year > 2500 ? year - 543 : year;
+}
+
+const ACCESS_LABELS: Record<string, { label: string; color: string }> = {
+  public:       { label: 'ສາທາລະນະ',  color: '#22c55e' },
+  read_only:    { label: 'ອ່ານໄດ້',    color: '#3b82f6' },
+  metadata_only:{ label: 'ຂໍ້ມູນດ່ວນ', color: '#f59e0b' },
+  member_only:  { label: 'ສະມາຊິກ',   color: '#8b5cf6' },
+  staff_only:   { label: 'ພະນັກງານ',  color: '#6b7280' },
+};
+
+type Comment = {
+  id: string;
+  content: string;
+  created_at: string;
+  user_id: string;
+  profiles: { full_name: string | null; email: string | null; avatar_url: string | null } | null;
+};
+
+function StarRating({
+  score,
+  onRate,
+  size = 20,
+  readonly = false,
+  colors,
+}: {
+  score: number;
+  onRate?: (s: number) => void;
+  size?: number;
+  readonly?: boolean;
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 4 }}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <TouchableOpacity
+          key={i}
+          onPress={() => !readonly && onRate?.(i)}
+          disabled={readonly}
+          activeOpacity={readonly ? 1 : 0.7}
+        >
+          <Text style={{ fontSize: size, color: i <= Math.round(score) ? '#f59e0b' : colors.border }}>
+            ★
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+function relativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days <= 0) return 'ມື້ນີ້';
+  if (days < 30) return `${days} ວັນ`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} ເດືອນ`;
+  return `${Math.floor(months / 12)} ປີ`;
+}
+
+export default function ResearchDetailScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const session = useSession();
+  const { slug } = useLocalSearchParams<{ slug: string }>();
+
+  const [item, setItem] = useState<ResearchItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favCount, setFavCount] = useState(0);
+  const [related, setRelated] = useState<ResearchItem[]>([]);
+
+  // Rating
+  const [avgRating, setAvgRating] = useState(0);
+  const [ratingCount, setRatingCount] = useState(0);
+  const [myRating, setMyRating] = useState(0);
+  const [ratingLoading, setRatingLoading] = useState(false);
+
+  // Comments
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentText, setCommentText] = useState('');
+  const [commentLoading, setCommentLoading] = useState(false);
+
+  useEffect(() => {
+    if (!slug) return;
+    getResearchBySlug(slug).then((data) => {
+      setItem(data);
+      setLoading(false);
+    });
+  }, [slug]);
+
+  useEffect(() => {
+    if (!item) return;
+    getFavorites().then((favs) => setIsFavorite(favs.includes(item.id)));
+    addReadingHistory(item.slug);
+
+    // favorites count
+    supabase
+      .from('favorites')
+      .select('id', { count: 'exact', head: true })
+      .eq('research_id', item.id)
+      .then(({ count }) => setFavCount(count ?? 0));
+
+    // avg rating
+    supabase
+      .from('ratings')
+      .select('score')
+      .eq('research_id', item.id)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          const avg = data.reduce((s, r) => s + r.score, 0) / data.length;
+          setAvgRating(avg);
+          setRatingCount(data.length);
+        }
+      });
+
+    // my rating (ถ้า login)
+    if (session) {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+        supabase
+          .from('ratings')
+          .select('score')
+          .eq('research_id', item.id)
+          .eq('user_id', user.id)
+          .single()
+          .then(({ data }) => { if (data) setMyRating(data.score); });
+      });
+    }
+
+    // related
+    const catSlug = item.research_categories[0]?.categories?.slug;
+    if (catSlug) {
+      getPublicResearch({ category: catSlug, limit: 6 }).then(({ data }) => {
+        setRelated(data.filter(r => r.id !== item.id).slice(0, 5));
+      });
+    }
+
+    // comments
+    loadComments(item.id);
+  }, [item, session]);
+
+  async function loadComments(researchId: string) {
+    const { data } = await supabase
+      .from('comments')
+      .select('id, content, created_at, user_id, profiles ( full_name, email, avatar_url )')
+      .eq('research_id', researchId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    setComments((data as unknown as Comment[]) ?? []);
+  }
+
+  async function handleFavorite() {
+    if (!session) { router.push('/(auth)/login' as any); return; }
+    if (!item) return;
+    const nowFav = await toggleFavorite(item.id);
+    setIsFavorite(nowFav);
+    setFavCount(prev => nowFav ? prev + 1 : Math.max(0, prev - 1));
+  }
+
+  async function handleShare() {
+    if (!item) return;
+    await Share.share({
+      title: item.title_th,
+      message: `${item.title_th}\n\nhttps://digital-library-sls.vercel.app/lo/research/${item.slug}`,
+    });
+  }
+
+  async function handleRate(score: number) {
+    if (!session) { router.push('/(auth)/login' as any); return; }
+    if (!item) return;
+    setRatingLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setRatingLoading(false); return; }
+
+    await supabase.from('ratings').upsert({
+      user_id: user.id,
+      research_id: item.id,
+      score,
+    }, { onConflict: 'user_id,research_id' });
+
+    setMyRating(score);
+    // reload avg
+    const { data } = await supabase.from('ratings').select('score').eq('research_id', item.id);
+    if (data && data.length > 0) {
+      setAvgRating(data.reduce((s, r) => s + r.score, 0) / data.length);
+      setRatingCount(data.length);
+    }
+    setRatingLoading(false);
+  }
+
+  async function handleComment() {
+    if (!session) { router.push('/(auth)/login' as any); return; }
+    if (!item || !commentText.trim()) return;
+    setCommentLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setCommentLoading(false); return; }
+
+    const { error } = await supabase.from('comments').insert({
+      user_id: user.id,
+      research_id: item.id,
+      content: commentText.trim(),
+    });
+
+    if (error) {
+      Alert.alert('ຜິດພາດ', 'ບໍ່ສາມາດສົ່ງຄຳເຫັນໄດ້');
+    } else {
+      setCommentText('');
+      await loadComments(item.id);
+    }
+    setCommentLoading(false);
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!item) {
+    return (
+      <View style={styles.center}>
+        <Ionicons name="alert-circle-outline" size={48} color={colors.text.muted} />
+        <Text style={styles.errorText}>ບໍ່ພົບງານວິໄຈ</Text>
+        <Button title="ກັບໄປ" onPress={() => router.back()} variant="outline" />
+      </View>
+    );
+  }
+
+  const authors = item.research_authors
+    .slice().sort((a, b) => a.author_order - b.author_order)
+    .map(ra => ra.authors?.name).filter(Boolean).join(', ');
+
+  const keywords = item.research_keywords
+    .map(rk => rk.keywords?.keyword).filter(Boolean);
+
+  const canReadPdf = ['public', 'read_only'].includes(item.access_level);
+  const accessInfo = ACCESS_LABELS[item.access_level];
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <StatusBar style="light" />
+
+      {/* ── Header overlay ── */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity onPress={handleShare} style={styles.iconBtn}>
+          <Ionicons name="share-outline" size={22} color="#fff" />
+        </TouchableOpacity>
+        {/* Heart + count */}
+        <TouchableOpacity onPress={handleFavorite} style={styles.iconBtnFav}>
+          <Ionicons
+            name={isFavorite ? 'heart' : 'heart-outline'}
+            size={22}
+            color={isFavorite ? '#f87171' : '#fff'}
+          />
+          {favCount > 0 && (
+            <Text style={styles.favCount}>{favCount}</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <FadeInView>
+          {/* Cover */}
+          <View style={styles.heroWrap}>
+            {item.cover_image ? (
+              <Image source={{ uri: item.cover_image }} style={styles.cover} contentFit="cover" cachePolicy="memory-disk" transition={300} />
+            ) : (
+              <View style={[styles.cover, styles.coverPlaceholder]}>
+                <Ionicons name="document-text-outline" size={80} color={colors.text.muted} />
+              </View>
+            )}
+            <View style={styles.heroGradient} />
+          </View>
+
+          <View style={styles.content}>
+            {/* Access badge */}
+            {accessInfo && (
+              <View style={[styles.accessBadge, { backgroundColor: accessInfo.color + '20', borderColor: accessInfo.color + '40' }]}>
+                <View style={[styles.accessDot, { backgroundColor: accessInfo.color }]} />
+                <Text style={[styles.accessText, { color: accessInfo.color }]}>{accessInfo.label}</Text>
+              </View>
+            )}
+
+            <Text style={styles.title}>{item.title_th}</Text>
+            {item.title_en && <Text style={styles.titleEn}>{item.title_en}</Text>}
+
+            {/* Stats row: views | downloads | favorites */}
+            <View style={styles.statsRow}>
+              <View style={styles.stat}>
+                <Ionicons name="eye-outline" size={15} color={colors.primary} />
+                <Text style={styles.statText}>{item.views}</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.stat}>
+                <Ionicons name="download-outline" size={15} color={colors.primary} />
+                <Text style={styles.statText}>{item.downloads}</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.stat}>
+                <Ionicons name="heart-outline" size={15} color={colors.error} />
+                <Text style={styles.statText}>{favCount}</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.stat}>
+                <Ionicons name="calendar-outline" size={15} color={colors.primary} />
+                <Text style={styles.statText}>{toAD(item.year)}</Text>
+              </View>
+            </View>
+
+            {/* Rating section */}
+            <View style={styles.ratingSection}>
+              <View style={styles.ratingLeft}>
+                <Text style={styles.ratingScore}>{avgRating > 0 ? avgRating.toFixed(1) : '—'}</Text>
+                <StarRating score={avgRating} readonly size={18} colors={colors} />
+                <Text style={styles.ratingCount}>{ratingCount} ຄະແນນ</Text>
+              </View>
+              <View style={styles.ratingRight}>
+                <Text style={styles.ratingLabel}>
+                  {session ? 'ໃຫ້ຄະແນນ:' : 'ເຂົ້າສູ່ລະບົບເພື່ອໃຫ້ຄະແນນ'}
+                </Text>
+                {session && (
+                  <StarRating
+                    score={myRating}
+                    onRate={handleRate}
+                    size={24}
+                    colors={colors}
+                  />
+                )}
+                {ratingLoading && <ActivityIndicator size="small" color={colors.primary} />}
+              </View>
+            </View>
+
+            {/* PDF Button */}
+            {canReadPdf && (
+              <TouchableOpacity
+                style={styles.pdfBtn}
+                onPress={() => {
+                  if (!session) { router.push('/(auth)/login' as any); return; }
+                  router.push(`/research/${slug}/pdf` as any);
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="document-text" size={20} color="#fff" />
+                <Text style={styles.pdfBtnText}>ອ່ານ PDF ອອນລາຍ</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Sections */}
+            {item.organizations?.name_th && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>ໜ່ວຍງານ</Text>
+                <Text style={styles.sectionText}>{item.organizations.name_th}</Text>
+              </View>
+            )}
+            {authors && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>ຜູ້ວິໄຈ</Text>
+                <Text style={styles.sectionText}>{authors}</Text>
+              </View>
+            )}
+            {item.abstract && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>ບົດຄັດຫຍໍ້</Text>
+                <Text style={styles.sectionText}>{item.abstract}</Text>
+              </View>
+            )}
+            {keywords.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>ຄຳສຳຄັນ</Text>
+                <View style={styles.keywords}>
+                  {keywords.map((kw, i) => (
+                    <View key={i} style={styles.keyword}>
+                      <Text style={styles.keywordText}>{kw}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Related */}
+            {related.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>ງານວິໄຈທີ່ກ່ຽວຂ້ອງ</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.relatedScroll}>
+                  {related.map(r => (
+                    <TouchableOpacity
+                      key={r.id}
+                      style={styles.relatedCard}
+                      onPress={() => router.push(`/research/${r.slug}` as any)}
+                      activeOpacity={0.75}
+                    >
+                      {r.cover_image ? (
+                        <Image source={{ uri: r.cover_image }} style={styles.relatedCover} contentFit="cover" cachePolicy="memory-disk" transition={200} />
+                      ) : (
+                        <View style={[styles.relatedCover, styles.relatedPlaceholder]}>
+                          <Ionicons name="document-text" size={20} color={colors.primary} />
+                        </View>
+                      )}
+                      <Text style={styles.relatedTitle} numberOfLines={2}>{r.title_th}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* ── Comments ── */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>ຄຳເຫັນ ({comments.length})</Text>
+
+              {/* Add comment */}
+              <View style={styles.commentInput}>
+                <TextInput
+                  style={styles.commentBox}
+                  placeholder={session ? 'ຂຽນຄຳເຫັນ...' : 'ເຂົ້າສູ່ລະບົບເພື່ອຄຳເຫັນ'}
+                  placeholderTextColor={colors.text.muted}
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  multiline
+                  maxLength={500}
+                  editable={!!session}
+                />
+                <TouchableOpacity
+                  style={[styles.commentSend, (!commentText.trim() || !session) && { opacity: 0.4 }]}
+                  onPress={handleComment}
+                  disabled={!commentText.trim() || !session || commentLoading}
+                >
+                  {commentLoading
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Ionicons name="send" size={16} color="#fff" />
+                  }
+                </TouchableOpacity>
+              </View>
+
+              {/* Comment list */}
+              {comments.length === 0 ? (
+                <Text style={styles.noComment}>ຍັງບໍ່ມີຄຳເຫັນ</Text>
+              ) : (
+                comments.map(c => {
+                  const name = c.profiles?.full_name ?? c.profiles?.email ?? 'ຜູ້ໃຊ້';
+                  const initials = name.slice(0, 2).toUpperCase();
+                  return (
+                    <View key={c.id} style={styles.commentItem}>
+                      <View style={styles.commentAvatar}>
+                        {c.profiles?.avatar_url ? (
+                          <Image source={{ uri: c.profiles.avatar_url }} style={styles.avatarImg} contentFit="cover" />
+                        ) : (
+                          <Text style={styles.avatarInitials}>{initials}</Text>
+                        )}
+                      </View>
+                      <View style={styles.commentBody}>
+                        <View style={styles.commentHeader}>
+                          <Text style={styles.commentName}>{name}</Text>
+                          <Text style={styles.commentTime}>{relativeTime(c.created_at)}</Text>
+                        </View>
+                        <Text style={styles.commentText}>{c.content}</Text>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+
+          </View>
+        </FadeInView>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+
+    header: {
+      position: 'absolute',
+      top: 0, left: 0, right: 0,
+      zIndex: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingTop: spacing.xxl,
+      paddingBottom: spacing.md,
+      paddingHorizontal: spacing.md,
+      gap: spacing.xs,
+    },
+    iconBtn: {
+      width: 40, height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(0,0,0,0.35)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    iconBtnFav: {
+      minWidth: 40, height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(0,0,0,0.35)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: 4,
+      paddingHorizontal: 10,
+    },
+    favCount: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#fff',
+    },
+
+    heroWrap: { position: 'relative' },
+    cover: { width: '100%', height: 280 },
+    coverPlaceholder: {
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    heroGradient: {
+      position: 'absolute',
+      bottom: 0, left: 0, right: 0,
+      height: 80,
+      backgroundColor: 'rgba(0,0,0,0.25)',
+    },
+
+    scroll: { paddingBottom: spacing.xxl },
+    content: { padding: spacing.lg, gap: spacing.md },
+
+    accessBadge: {
+      flexDirection: 'row', alignItems: 'center',
+      alignSelf: 'flex-start', gap: 6,
+      paddingHorizontal: spacing.sm, paddingVertical: 4,
+      borderRadius: radius.full, borderWidth: 1,
+    },
+    accessDot: { width: 6, height: 6, borderRadius: 3 },
+    accessText: { fontSize: 12, fontWeight: '600' },
+
+    title: { ...typography.h2, color: colors.text.primary },
+    titleEn: { ...typography.body, color: colors.text.secondary },
+
+    statsRow: {
+      flexDirection: 'row', alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.surface,
+      borderRadius: radius.md, padding: spacing.md,
+      borderWidth: 1, borderColor: colors.border,
+    },
+    stat: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1, justifyContent: 'center' },
+    statText: { ...typography.bodySmall, color: colors.text.secondary },
+    statDivider: { width: 1, height: 16, backgroundColor: colors.border },
+
+    // Rating
+    ratingSection: {
+      flexDirection: 'row',
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: spacing.lg,
+      alignItems: 'center',
+    },
+    ratingLeft: { alignItems: 'center', gap: 4 },
+    ratingScore: { ...typography.h2, color: colors.text.primary },
+    ratingCount: { ...typography.caption, color: colors.text.muted },
+    ratingRight: { flex: 1, gap: 6 },
+    ratingLabel: { ...typography.caption, color: colors.text.secondary },
+
+    pdfBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: spacing.sm, backgroundColor: colors.primary,
+      borderRadius: radius.md, paddingVertical: spacing.md, ...shadows.sm,
+    },
+    pdfBtnText: { ...typography.label, color: '#fff', fontSize: 15 },
+
+    section: { gap: spacing.xs },
+    sectionTitle: { ...typography.label, color: colors.text.primary },
+    sectionText: { ...typography.body, color: colors.text.secondary, lineHeight: 24 },
+
+    keywords: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+    keyword: {
+      backgroundColor: colors.primaryLight, borderRadius: radius.full,
+      paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
+    },
+    keywordText: { ...typography.caption, color: colors.primary },
+
+    relatedScroll: { marginTop: spacing.xs },
+    relatedCard: {
+      width: 100, marginRight: spacing.sm,
+      backgroundColor: colors.surface, borderRadius: radius.md,
+      overflow: 'hidden', borderWidth: 1, borderColor: colors.border,
+    },
+    relatedCover: { width: 100, height: 140, backgroundColor: colors.primaryLight },
+    relatedPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+    relatedTitle: {
+      fontSize: 11, fontWeight: '600',
+      color: colors.text.primary,
+      padding: spacing.xs, lineHeight: 15,
+    },
+
+    // Comments
+    commentInput: {
+      flexDirection: 'row', gap: spacing.sm,
+      alignItems: 'flex-end', marginTop: spacing.sm,
+    },
+    commentBox: {
+      flex: 1, minHeight: 44, maxHeight: 120,
+      borderWidth: 1.5, borderColor: colors.border,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+      ...typography.body, color: colors.text.primary,
+      backgroundColor: colors.surface,
+    },
+    commentSend: {
+      width: 44, height: 44, borderRadius: 22,
+      backgroundColor: colors.primary,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    noComment: {
+      ...typography.caption, color: colors.text.muted,
+      textAlign: 'center', paddingVertical: spacing.lg,
+    },
+    commentItem: {
+      flexDirection: 'row', gap: spacing.sm,
+      paddingVertical: spacing.sm,
+      borderTopWidth: 0.5, borderTopColor: colors.border,
+    },
+    commentAvatar: {
+      width: 36, height: 36, borderRadius: 18,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center', justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    avatarImg: { width: 36, height: 36 },
+    avatarInitials: { fontSize: 13, fontWeight: '600', color: colors.primary },
+    commentBody: { flex: 1 },
+    commentHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
+    commentName: { ...typography.label, color: colors.text.primary, fontSize: 13 },
+    commentTime: { ...typography.caption, color: colors.text.muted },
+    commentText: { ...typography.bodySmall, color: colors.text.secondary, lineHeight: 20 },
+
+    errorText: { ...typography.body, color: colors.text.secondary },
+  });
+}
+```
+
+---
+
+## วิธีใช้ใน Cursor
+
+```
+@app/research/[slug].tsx
+
+Phase C: แทนที่ไฟล์ทั้งหมดตาม prompt file นี้
+ห้ามแตะไฟล์อื่น
+```
+
+## ตรวจสอบหลังรัน
+
+1. `npx tsc --noEmit` — 0 errors
+2. หน้า detail — stats row: 👁 views | ⬇ downloads | ❤️ favCount | 📅 ปี
+3. Header heart icon — แสดงตัวเลข favCount ด้านข้าง
+4. Rating section — avg ดาว + ดาวกด (ถ้า login)
+5. กดดาว → บันทึกใน ratings table → avg อัปเดต
+6. Comments — กล่องพิมพ์ + ปุ่ม send → แสดงใน list
+7. ถ้าไม่ login → comment box disabled + แสดงข้อความ
+8. ไม่มีปีใน related card
