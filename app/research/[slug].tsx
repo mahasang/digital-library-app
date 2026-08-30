@@ -59,13 +59,14 @@ function StarRating({
   colors: ReturnType<typeof useTheme>['colors'];
 }) {
   return (
-    <View style={{ flexDirection: 'row', gap: 4 }}>
+    <View style={{ flexDirection: 'row', gap: 8 }}>
       {[1, 2, 3, 4, 5].map(i => (
         <TouchableOpacity
           key={i}
           onPress={() => !readonly && onRate?.(i)}
           disabled={readonly}
           activeOpacity={readonly ? 1 : 0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
         >
           <Text style={{ fontSize: size, color: i <= Math.round(score) ? '#f59e0b' : colors.border }}>
             ★
@@ -327,22 +328,22 @@ export default function ResearchDetailScreen() {
             {/* Stats row: views | downloads | favorites */}
             <View style={styles.statsRow}>
               <View style={styles.stat}>
-                <Ionicons name="eye-outline" size={15} color={colors.primary} />
+                <Ionicons name="eye-outline" size={16} color={colors.primary} />
                 <Text style={styles.statText}>{item.views}</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.stat}>
-                <Ionicons name="download-outline" size={15} color={colors.primary} />
+                <Ionicons name="download-outline" size={16} color={colors.primary} />
                 <Text style={styles.statText}>{item.downloads}</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.stat}>
-                <Ionicons name="heart-outline" size={15} color={colors.error} />
+                <Ionicons name="heart-outline" size={16} color={colors.error} />
                 <Text style={styles.statText}>{favCount}</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.stat}>
-                <Ionicons name="calendar-outline" size={15} color={colors.primary} />
+                <Ionicons name="calendar-outline" size={16} color={colors.primary} />
                 <Text style={styles.statText}>{toAD(item.year)}</Text>
               </View>
             </View>
@@ -362,7 +363,7 @@ export default function ResearchDetailScreen() {
                   <StarRating
                     score={myRating}
                     onRate={handleRate}
-                    size={24}
+                    size={32}
                     readonly={ratingLoading}
                     colors={colors}
                   />
@@ -494,7 +495,7 @@ export default function ResearchDetailScreen() {
                           <Text style={styles.avatarInitials}>{initials}</Text>
                         )}
                       </View>
-                      <View style={styles.commentBody}>
+                      <View style={styles.commentBubble}>
                         <View style={styles.commentHeader}>
                           <Text style={styles.commentName}>{c.author_name}</Text>
                           <Text style={styles.commentTime}>{relativeTime(c.created_at)}</Text>
@@ -589,26 +590,53 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderRadius: radius.md, padding: spacing.md,
       borderWidth: 1, borderColor: colors.border,
     },
-    stat: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1, justifyContent: 'center' },
-    statText: { ...typography.bodySmall, color: colors.text.secondary },
+    stat: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flex: 1,
+      justifyContent: 'center',
+    },
+    statText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text.primary,
+    },
     statDivider: { width: 1, height: 16, backgroundColor: colors.border },
 
     // Rating
     ratingSection: {
       flexDirection: 'row',
-      backgroundColor: colors.surface,
-      borderRadius: radius.md,
+      backgroundColor: colors.primaryLight,
+      borderRadius: radius.lg,
       padding: spacing.md,
-      borderWidth: 1,
-      borderColor: colors.border,
       gap: spacing.lg,
       alignItems: 'center',
+      borderWidth: 0,
     },
-    ratingLeft: { alignItems: 'center', gap: 4 },
-    ratingScore: { ...typography.h2, color: colors.text.primary },
-    ratingCount: { ...typography.caption, color: colors.text.muted },
-    ratingRight: { flex: 1, gap: 6 },
-    ratingLabel: { ...typography.caption, color: colors.text.secondary },
+    ratingLeft: {
+      alignItems: 'center',
+      gap: 4,
+      paddingRight: spacing.md,
+      borderRightWidth: 1,
+      borderRightColor: colors.border,
+    },
+    ratingScore: {
+      ...typography.h2,
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    ratingCount: { ...typography.caption, color: colors.text.secondary },
+    ratingRight: {
+      flex: 1,
+      gap: 8,
+      alignItems: 'flex-start',
+    },
+    ratingLabel: {
+      ...typography.label,
+      color: colors.text.secondary,
+      fontSize: 12,
+    },
 
     pdfBtn: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -618,7 +646,15 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     pdfBtnText: { ...typography.label, color: '#fff', fontSize: 15 },
 
     section: { gap: spacing.xs },
-    sectionTitle: { ...typography.label, color: colors.text.primary },
+    sectionTitle: {
+      ...typography.label,
+      color: colors.text.primary,
+      fontSize: 15,
+      paddingLeft: spacing.sm,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+      borderRadius: 0,
+    },
     sectionText: { ...typography.body, color: colors.text.secondary, lineHeight: 24 },
 
     keywords: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
@@ -665,23 +701,57 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       textAlign: 'center', paddingVertical: spacing.lg,
     },
     commentItem: {
-      flexDirection: 'row', gap: spacing.sm,
-      paddingVertical: spacing.sm,
-      borderTopWidth: 0.5, borderTopColor: colors.border,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+      marginTop: spacing.sm,
     },
     commentAvatar: {
-      width: 36, height: 36, borderRadius: 18,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
       backgroundColor: colors.primaryLight,
-      alignItems: 'center', justifyContent: 'center',
+      alignItems: 'center',
+      justifyContent: 'center',
       overflow: 'hidden',
+      borderWidth: 1.5,
+      borderColor: colors.primary + '30',
+      flexShrink: 0,
     },
     avatarImg: { width: 36, height: 36 },
-    avatarInitials: { fontSize: 13, fontWeight: '600', color: colors.primary },
-    commentBody: { flex: 1 },
-    commentHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
-    commentName: { ...typography.label, color: colors.text.primary, fontSize: 13 },
-    commentTime: { ...typography.caption, color: colors.text.muted },
-    commentText: { ...typography.bodySmall, color: colors.text.secondary, lineHeight: 20 },
+    avatarInitials: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    commentBubble: {
+      flex: 1,
+      backgroundColor: colors.primaryLight,
+      borderRadius: radius.lg,
+      borderTopLeftRadius: 4,
+      padding: spacing.sm,
+      gap: 4,
+    },
+    commentHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    commentName: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    commentTime: {
+      ...typography.caption,
+      color: colors.text.muted,
+      fontSize: 10,
+    },
+    commentText: {
+      ...typography.bodySmall,
+      color: colors.text.primary,
+      lineHeight: 20,
+    },
 
     errorText: { ...typography.body, color: colors.text.secondary },
   });
