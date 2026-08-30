@@ -187,6 +187,7 @@ export default function ShelfScreen() {
               keyExtractor={(item) => item.id}
               renderItem={renderHCard}
               horizontal
+              nestedScrollEnabled={true}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.hList}
               ItemSeparatorComponent={() => <View style={{ width: CARD_GAP }} />}
@@ -213,6 +214,7 @@ export default function ShelfScreen() {
                   keyExtractor={(item) => item.id}
                   renderItem={renderHCard}
                   horizontal
+                  nestedScrollEnabled={true}
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.hList}
                   ItemSeparatorComponent={() => <View style={{ width: CARD_GAP }} />}

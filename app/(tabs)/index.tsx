@@ -63,17 +63,21 @@ export default function HomeScreen() {
   const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
 
   useEffect(() => {
-    getResearchStats().then(setStats);
-    getPublicResearch({ limit: 10, sort: 'views' }).then(({ data, count }) => {
-      setPopular(data);
-      setPopularTotal(count);
-      loadRatings(data);
-    });
-    getPublicResearch({ limit: 10, sort: 'latest' }).then(({ data, count }) => {
-      setLatest(data);
-      setLatestTotal(count);
-      loadRatings(data);
-    });
+    try {
+      getResearchStats().then(setStats).catch(err => console.error(err));
+      getPublicResearch({ limit: 10, sort: 'views' }).then(({ data, count }) => {
+        setPopular(data);
+        setPopularTotal(count);
+        loadRatings(data);
+      }).catch(err => console.error(err));
+      getPublicResearch({ limit: 10, sort: 'latest' }).then(({ data, count }) => {
+        setLatest(data);
+        setLatestTotal(count);
+        loadRatings(data);
+      }).catch(err => console.error(err));
+    } catch (err) {
+      console.error(err);
+    }
   }, []);
 
   useEffect(() => {

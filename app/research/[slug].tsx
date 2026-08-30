@@ -363,6 +363,7 @@ export default function ResearchDetailScreen() {
                     score={myRating}
                     onRate={handleRate}
                     size={24}
+                    readonly={ratingLoading}
                     colors={colors}
                   />
                 )}
@@ -375,7 +376,14 @@ export default function ResearchDetailScreen() {
               <TouchableOpacity
                 style={styles.pdfBtn}
                 onPress={() => {
-                  if (!session) { router.push('/(auth)/login' as any); return; }
+                  if (!session) {
+                    Alert.alert(
+                      t('common_error'),
+                      t('fav_login_text'),
+                      [{ text: t('common_ok'), onPress: () => router.push('/(auth)/login' as any) }]
+                    );
+                    return;
+                  }
                   router.push(`/research/${slug}/pdf` as any);
                 }}
                 activeOpacity={0.85}
