@@ -18,20 +18,21 @@ import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
 import { FadeInView } from '@/components/ui/FadeInView';
 
+const COVER_W = 120;
+const COVER_H = Math.round(COVER_W * 1.4);
+
 function toAD(year: number) {
   return year > 2500 ? year - 543 : year;
 }
 
 const ACCESS_LABELS: Record<string, { label: string; color: string }> = {
-  public:       { label: 'ສາທາລະນະ',  color: '#22c55e' },
-  read_only:    { label: 'ອ່ານໄດ້',    color: '#3b82f6' },
-  metadata_only:{ label: 'ຂໍ້ມູນດ່ວນ', color: '#f59e0b' },
-  member_only:  { label: 'ສະມາຊິກ',   color: '#8b5cf6' },
-  staff_only:   { label: 'ພະນັກງານ',  color: '#6b7280' },
+  public:        { label: 'ສາທາລະນະ',  color: '#22c55e' },
+  read_only:     { label: 'ອ່ານໄດ້',    color: '#3b82f6' },
+  metadata_only: { label: 'ຂໍ້ມູນດ່ວນ', color: '#f59e0b' },
+  member_only:   { label: 'ສະມາຊິກ',   color: '#8b5cf6' },
+  staff_only:    { label: 'ພະນັກງານ',  color: '#6b7280' },
 };
 
-// รูปร่างตรงกับ RPC get_comments() — resolve author_name/avatar ฝั่ง DB ให้แล้ว
-// (join profiles ตรงๆ จาก client จะโดน profiles RLS บล็อกจนชื่อคนอื่นหายไป)
 type Comment = {
   id: string;
   content: string;
@@ -41,16 +42,10 @@ type Comment = {
   author_avatar_url: string | null;
 };
 
-// รูปร่างตรงกับ RPC get_rating_stats() — .single() บน rpc() ที่ไม่มี generated types
-// infer เป็น {} เฉยๆ จึงต้อง cast ตรงนี้
 type RatingStats = { avg_score: number; rating_count: number };
 
 function StarRating({
-  score,
-  onRate,
-  size = 20,
-  readonly = false,
-  colors,
+  score, onRate, size = 20, readonly = false, colors,
 }: {
   score: number;
   onRate?: (s: number) => void;
@@ -68,9 +63,7 @@ function StarRating({
           activeOpacity={readonly ? 1 : 0.7}
           hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
         >
-          <Text style={{ fontSize: size, color: i <= Math.round(score) ? '#f59e0b' : colors.border }}>
-            ★
-          </Text>
+          <Text style={{ fontSize: size, color: i <= Math.round(score) ? '#f59e0b' : colors.border }}>★</Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -87,6 +80,8 @@ function relativeTime(dateStr: string): string {
   return `${Math.floor(months / 12)} ປີ`;
 }
 
+type Tab = 'abstract' | 'comments';
+
 export default function ResearchDetailScreen() {
   const { colors, isDark } = useTheme();
   const t = useT();
@@ -99,17 +94,14 @@ export default function ResearchDetailScreen() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [favCount, setFavCount] = useState(0);
   const [related, setRelated] = useState<ResearchItem[]>([]);
-
-  // Rating
   const [avgRating, setAvgRating] = useState(0);
   const [ratingCount, setRatingCount] = useState(0);
   const [myRating, setMyRating] = useState(0);
   const [ratingLoading, setRatingLoading] = useState(false);
-
-  // Comments
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('abstract');
 
   useEffect(() => {
     if (!slug) return;
@@ -124,38 +116,24 @@ export default function ResearchDetailScreen() {
     getFavorites().then((favs) => setIsFavorite(favs.includes(item.id)));
     addReadingHistory(item.slug);
 
-    // favorites count — favorites.select RLS เห็นแค่แถวของตัวเอง ต้องใช้ RPC เพื่อนับรวมทุกคน
-    supabase
-      .rpc('get_favorites_count', { p_research_id: item.id })
+    supabase.rpc('get_favorites_count', { p_research_id: item.id })
       .then(({ data }) => setFavCount(data ?? 0));
 
-    // avg rating — ratings ไม่เปิด public select ตรงๆ ต้องใช้ RPC เช่นกัน
-    supabase
-      .rpc('get_rating_stats', { p_research_id: item.id })
-      .single()
+    supabase.rpc('get_rating_stats', { p_research_id: item.id }).single()
       .then(({ data }) => {
         const stats = data as unknown as RatingStats | null;
-        if (stats) {
-          setAvgRating(Number(stats.avg_score) ?? 0);
-          setRatingCount(stats.rating_count ?? 0);
-        }
+        if (stats) { setAvgRating(Number(stats.avg_score)); setRatingCount(stats.rating_count); }
       });
 
-    // my rating (ถ้า login) — เป็นแถวของตัวเอง อ่านจากตารางตรงๆ ได้
     if (session) {
       supabase.auth.getUser().then(({ data: { user } }) => {
         if (!user) return;
-        supabase
-          .from('ratings')
-          .select('score')
-          .eq('research_id', item.id)
-          .eq('user_id', user.id)
-          .single()
+        supabase.from('ratings').select('score')
+          .eq('research_id', item.id).eq('user_id', user.id).single()
           .then(({ data }) => { if (data) setMyRating(data.score); });
       });
     }
 
-    // related
     const catSlug = item.research_categories[0]?.categories?.slug;
     if (catSlug) {
       getPublicResearch({ category: catSlug, limit: 6 }).then(({ data }) => {
@@ -163,7 +141,6 @@ export default function ResearchDetailScreen() {
       });
     }
 
-    // comments
     loadComments(item.id);
   }, [item, session]);
 
@@ -190,64 +167,38 @@ export default function ResearchDetailScreen() {
 
   async function handleRate(score: number) {
     if (!session) { router.push('/(auth)/login' as any); return; }
-    if (!item) return;
+    if (!item || ratingLoading) return;
     setRatingLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setRatingLoading(false); return; }
-
-    const { error } = await supabase.from('ratings').upsert({
-      user_id: user.id,
-      research_id: item.id,
-      score,
-    }, { onConflict: 'user_id,research_id' });
-
-    if (error) {
-      setRatingLoading(false);
-      Alert.alert(t('common_error'), t('common_rating_error'));
-      return;
-    }
-
+    const { error } = await supabase.from('ratings').upsert(
+      { user_id: user.id, research_id: item.id, score },
+      { onConflict: 'user_id,research_id' }
+    );
+    if (error) { Alert.alert(t('common_error'), t('common_rating_error')); setRatingLoading(false); return; }
     setMyRating(score);
-    // reload avg ผ่าน RPC (ratings ไม่เปิด public select ตรงๆ)
-    const { data: statsRaw } = await supabase
-      .rpc('get_rating_stats', { p_research_id: item.id })
-      .single();
-    const stats = statsRaw as unknown as RatingStats | null;
-    if (stats) {
-      setAvgRating(Number(stats.avg_score) ?? 0);
-      setRatingCount(stats.rating_count ?? 0);
-    }
+    const { data: stats } = await supabase.rpc('get_rating_stats', { p_research_id: item.id }).single();
+    const s = stats as unknown as RatingStats | null;
+    if (s) { setAvgRating(Number(s.avg_score)); setRatingCount(s.rating_count); }
     setRatingLoading(false);
   }
 
   async function handleComment() {
     if (!session) { router.push('/(auth)/login' as any); return; }
-    if (!item || !commentText.trim()) return;
+    if (!item || !commentText.trim() || commentLoading) return;
     setCommentLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setCommentLoading(false); return; }
-
-    const { error } = await supabase.from('comments').insert({
-      user_id: user.id,
-      research_id: item.id,
-      content: commentText.trim(),
-    });
-
-    if (error) {
-      Alert.alert(t('common_error'), t('common_comment_error'));
-    } else {
-      setCommentText('');
-      await loadComments(item.id);
-    }
+    const { error } = await supabase.from('comments').insert(
+      { user_id: user.id, research_id: item.id, content: commentText.trim() }
+    );
+    if (error) { Alert.alert(t('common_error'), t('common_comment_error')); }
+    else { setCommentText(''); await loadComments(item.id); }
     setCommentLoading(false);
   }
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>;
   }
 
   if (!item) {
@@ -264,200 +215,220 @@ export default function ResearchDetailScreen() {
     .slice().sort((a, b) => a.author_order - b.author_order)
     .map(ra => ra.authors?.name).filter(Boolean).join(', ');
 
-  const keywords = item.research_keywords
-    .map(rk => rk.keywords?.keyword).filter(Boolean);
-
+  const keywords = item.research_keywords.map(rk => rk.keywords?.keyword).filter(Boolean);
   const canReadPdf = ['public', 'read_only'].includes(item.access_level);
   const accessInfo = ACCESS_LABELS[item.access_level];
+  const categoryName = item.research_categories[0]?.categories?.name_th ?? '';
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <StatusBar style="light" />
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      {/* ── Header overlay ── */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+      {/* ── Sticky Header ── */}
+      <View style={styles.stickyHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+          <Ionicons name="arrow-back" size={22} color={colors.text.primary} />
         </TouchableOpacity>
-        <View style={{ flex: 1 }} />
-        <TouchableOpacity onPress={handleShare} style={styles.iconBtn}>
-          <Ionicons name="share-outline" size={22} color="#fff" />
+        <Text style={styles.headerSlug} numberOfLines={1}>{item.title_th}</Text>
+        <TouchableOpacity onPress={handleShare} style={styles.headerBtn}>
+          <Ionicons name="share-outline" size={22} color={colors.text.primary} />
         </TouchableOpacity>
-        {/* Heart + count */}
-        <TouchableOpacity onPress={handleFavorite} style={styles.iconBtnFav}>
+        <TouchableOpacity onPress={handleFavorite} style={styles.headerBtn}>
           <Ionicons
             name={isFavorite ? 'heart' : 'heart-outline'}
             size={22}
-            color={isFavorite ? '#f87171' : '#fff'}
+            color={isFavorite ? '#f87171' : colors.text.primary}
           />
-          {favCount > 0 && (
-            <Text style={styles.favCount}>{favCount}</Text>
-          )}
+          {favCount > 0 && <Text style={styles.favCount}>{favCount}</Text>}
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <FadeInView>
-          {/* Cover */}
-          <View style={styles.heroWrap}>
-            {item.cover_image ? (
-              <Image source={{ uri: item.cover_image }} style={styles.cover} contentFit="cover" cachePolicy="memory-disk" transition={300} />
-            ) : (
-              <View style={[styles.cover, styles.coverPlaceholder]}>
-                <Ionicons name="document-text-outline" size={80} color={colors.text.muted} />
+
+          {/* ── Hero Row: ปกซ้าย + info ขวา ── */}
+          <View style={styles.heroRow}>
+            {/* ปก */}
+            <View style={styles.coverWrapper}>
+              {item.cover_image ? (
+                <Image
+                  source={{ uri: item.cover_image }}
+                  style={styles.cover}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                  transition={300}
+                />
+              ) : (
+                <View style={[styles.cover, styles.coverPlaceholder]}>
+                  <Ionicons name="document-text-outline" size={40} color={colors.primary} />
+                </View>
+              )}
+            </View>
+
+            {/* Info */}
+            <View style={styles.heroInfo}>
+              <Text style={styles.title} numberOfLines={4}>{item.title_th}</Text>
+              {item.title_en && (
+                <Text style={styles.titleEn} numberOfLines={2}>{item.title_en}</Text>
+              )}
+              {accessInfo && (
+                <View style={[styles.accessBadge, { backgroundColor: accessInfo.color + '20', borderColor: accessInfo.color + '50' }]}>
+                  <View style={[styles.accessDot, { backgroundColor: accessInfo.color }]} />
+                  <Text style={[styles.accessText, { color: accessInfo.color }]}>{accessInfo.label}</Text>
+                </View>
+              )}
+              {/* Rating inline */}
+              {ratingCount > 0 ? (
+                <View style={styles.ratingInline}>
+                  <Text style={styles.ratingNum}>{avgRating.toFixed(1)}</Text>
+                  <Text style={{ color: '#f59e0b', fontSize: 14 }}>★</Text>
+                  <Text style={styles.ratingInlineCount}>({ratingCount})</Text>
+                </View>
+              ) : null}
+              {/* Stats inline */}
+              <View style={styles.statsInline}>
+                <Ionicons name="eye-outline" size={13} color={colors.text.muted} />
+                <Text style={styles.statInlineTxt}>{item.views}</Text>
+                <Text style={styles.statDot}>·</Text>
+                <Ionicons name="download-outline" size={13} color={colors.text.muted} />
+                <Text style={styles.statInlineTxt}>{item.downloads}</Text>
               </View>
-            )}
-            <View style={styles.heroGradient} />
+            </View>
           </View>
 
-          <View style={styles.content}>
-            {/* Access badge */}
-            {accessInfo && (
-              <View style={[styles.accessBadge, { backgroundColor: accessInfo.color + '20', borderColor: accessInfo.color + '40' }]}>
-                <View style={[styles.accessDot, { backgroundColor: accessInfo.color }]} />
-                <Text style={[styles.accessText, { color: accessInfo.color }]}>{accessInfo.label}</Text>
-              </View>
-            )}
+          {/* ── PDF Button ── */}
+          {canReadPdf && (
+            <TouchableOpacity
+              style={styles.pdfBtn}
+              onPress={() => {
+                if (!session) {
+                  Alert.alert(t('common_error'), t('fav_login_text'), [{ text: t('common_ok'), onPress: () => router.push('/(auth)/login' as any) }]);
+                  return;
+                }
+                router.push(`/research/${slug}/pdf` as any);
+              }}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="document-text" size={18} color="#fff" />
+              <Text style={styles.pdfBtnText}>{t('detail_read_pdf')}</Text>
+            </TouchableOpacity>
+          )}
 
-            <Text style={styles.title}>{item.title_th}</Text>
-            {item.title_en && <Text style={styles.titleEn}>{item.title_en}</Text>}
+          {/* ── Details Grid ── */}
+          <View style={styles.detailGrid}>
+            {[
+              { icon: 'calendar-outline', label: 'ປີ', value: toAD(item.year).toString() },
+              { icon: 'business-outline', label: t('detail_org'), value: item.organizations?.name_th?.split(' ')[0] ?? '—' },
+              { icon: 'folder-outline', label: 'ໝວດ', value: categoryName || '—' },
+              { icon: 'heart-outline', label: 'ມັກ', value: favCount.toString() },
+            ].map((d, i) => (
+              <View key={i} style={[styles.detailCell, i < 3 && styles.detailCellBorder]}>
+                <Ionicons name={d.icon as any} size={18} color={colors.primary} />
+                <Text style={styles.detailValue}>{d.value}</Text>
+                <Text style={styles.detailLabel}>{d.label}</Text>
+              </View>
+            ))}
+          </View>
 
-            {/* Stats row: views | downloads | favorites */}
-            <View style={styles.statsRow}>
-              <View style={styles.stat}>
-                <Ionicons name="eye-outline" size={16} color={colors.primary} />
-                <Text style={styles.statText}>{item.views}</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.stat}>
-                <Ionicons name="download-outline" size={16} color={colors.primary} />
-                <Text style={styles.statText}>{item.downloads}</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.stat}>
-                <Ionicons name="heart-outline" size={16} color={colors.error} />
-                <Text style={styles.statText}>{favCount}</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.stat}>
-                <Ionicons name="calendar-outline" size={16} color={colors.primary} />
-                <Text style={styles.statText}>{toAD(item.year)}</Text>
-              </View>
-            </View>
-
-            {/* Rating section */}
-            <View style={styles.ratingSection}>
-              <View style={styles.ratingLeft}>
-                <Text style={styles.ratingScore}>{avgRating > 0 ? avgRating.toFixed(1) : '—'}</Text>
-                <StarRating score={avgRating} readonly size={18} colors={colors} />
-                <Text style={styles.ratingCount}>{ratingCount} {t('rating_count')}</Text>
-              </View>
-              <View style={styles.ratingRight}>
-                <Text style={styles.ratingLabel}>
-                  {session ? t('rating_label') : t('rating_login')}
-                </Text>
-                {session && (
-                  <StarRating
-                    score={myRating}
-                    onRate={handleRate}
-                    size={32}
-                    readonly={ratingLoading}
-                    colors={colors}
-                  />
-                )}
-                {ratingLoading && <ActivityIndicator size="small" color={colors.primary} />}
-              </View>
-            </View>
-
-            {/* PDF Button */}
-            {canReadPdf && (
+          {/* ── Tabs ── */}
+          <View style={styles.tabs}>
+            {([
+              { key: 'abstract', label: t('detail_abstract') },
+              { key: 'comments', label: `${t('comment_title')} (${comments.length})` },
+            ] as { key: Tab; label: string }[]).map(tab => (
               <TouchableOpacity
-                style={styles.pdfBtn}
-                onPress={() => {
-                  if (!session) {
-                    Alert.alert(
-                      t('common_error'),
-                      t('fav_login_text'),
-                      [{ text: t('common_ok'), onPress: () => router.push('/(auth)/login' as any) }]
-                    );
-                    return;
-                  }
-                  router.push(`/research/${slug}/pdf` as any);
-                }}
-                activeOpacity={0.85}
+                key={tab.key}
+                style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+                onPress={() => setActiveTab(tab.key)}
               >
-                <Ionicons name="document-text" size={20} color="#fff" />
-                <Text style={styles.pdfBtnText}>{t('detail_read_pdf')}</Text>
+                <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+                  {tab.label}
+                </Text>
               </TouchableOpacity>
-            )}
+            ))}
+          </View>
 
-            {/* Sections */}
-            {item.organizations?.name_th && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{t('detail_org')}</Text>
-                <Text style={styles.sectionText}>{item.organizations.name_th}</Text>
-              </View>
-            )}
-            {authors && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{t('detail_author')}</Text>
-                <Text style={styles.sectionText}>{authors}</Text>
-              </View>
-            )}
-            {item.abstract && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{t('detail_abstract')}</Text>
-                <Text style={styles.sectionText}>{item.abstract}</Text>
-              </View>
-            )}
-            {keywords.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{t('detail_keywords')}</Text>
-                <View style={styles.keywords}>
-                  {keywords.map((kw, i) => (
-                    <View key={i} style={styles.keyword}>
-                      <Text style={styles.keywordText}>{kw}</Text>
-                    </View>
-                  ))}
+          {/* ── Tab: Abstract ── */}
+          {activeTab === 'abstract' && (
+            <View style={styles.tabContent}>
+              {item.abstract && (
+                <Text style={styles.abstractText}>{item.abstract}</Text>
+              )}
+              {authors ? (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>{t('detail_author')}</Text>
+                  <Text style={styles.infoValue}>{authors}</Text>
+                </View>
+              ) : null}
+              {keywords.length > 0 && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>{t('detail_keywords')}</Text>
+                  <View style={styles.keywords}>
+                    {keywords.map((kw, i) => (
+                      <View key={i} style={styles.keyword}>
+                        <Text style={styles.keywordText}>{kw}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+              {/* Related */}
+              {related.length > 0 && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>{t('detail_related')}</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: spacing.xs }}>
+                    {related.map(r => (
+                      <TouchableOpacity
+                        key={r.id}
+                        style={styles.relatedCard}
+                        onPress={() => router.push(`/research/${r.slug}` as any)}
+                        activeOpacity={0.75}
+                      >
+                        {r.cover_image ? (
+                          <Image source={{ uri: r.cover_image }} style={styles.relatedCover} contentFit="cover" cachePolicy="memory-disk" transition={200} />
+                        ) : (
+                          <View style={[styles.relatedCover, { backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' }]}>
+                            <Ionicons name="document-text" size={20} color={colors.primary} />
+                          </View>
+                        )}
+                        <Text style={styles.relatedTitle} numberOfLines={2}>{r.title_th}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* ── Tab: Comments ── */}
+          {activeTab === 'comments' && (
+            <View style={styles.tabContent}>
+              {/* Rating summary */}
+              <View style={styles.ratingCard}>
+                <View style={styles.ratingLeft}>
+                  <Text style={styles.ratingBig}>{ratingCount > 0 ? avgRating.toFixed(1) : '—'}</Text>
+                  <StarRating score={avgRating} readonly size={16} colors={colors} />
+                  <Text style={styles.ratingCountTxt}>{ratingCount} {t('rating_count')}</Text>
+                </View>
+                <View style={styles.ratingRight}>
+                  <Text style={styles.ratingLabel}>
+                    {session ? t('rating_label') : t('rating_login')}
+                  </Text>
+                  {session && (
+                    <StarRating
+                      score={myRating}
+                      onRate={handleRate}
+                      size={32}
+                      readonly={ratingLoading}
+                      colors={colors}
+                    />
+                  )}
+                  {ratingLoading && <ActivityIndicator size="small" color={colors.primary} />}
                 </View>
               </View>
-            )}
 
-            {/* Related */}
-            {related.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{t('detail_related')}</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.relatedScroll}>
-                  {related.map(r => (
-                    <TouchableOpacity
-                      key={r.id}
-                      style={styles.relatedCard}
-                      onPress={() => router.push(`/research/${r.slug}` as any)}
-                      activeOpacity={0.75}
-                    >
-                      {r.cover_image ? (
-                        <Image source={{ uri: r.cover_image }} style={styles.relatedCover} contentFit="cover" cachePolicy="memory-disk" transition={200} />
-                      ) : (
-                        <View style={[styles.relatedCover, styles.relatedPlaceholder]}>
-                          <Ionicons name="document-text" size={20} color={colors.primary} />
-                        </View>
-                      )}
-                      <Text style={styles.relatedTitle} numberOfLines={2}>{r.title_th}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-
-            {/* ── Comments ── */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t('comment_title')} ({comments.length})</Text>
-
-              {/* Add comment */}
-              <View style={styles.commentInput}>
+              {/* Comment input */}
+              <View style={styles.commentInputRow}>
                 <TextInput
                   style={styles.commentBox}
                   placeholder={session ? t('comment_placeholder') : t('comment_login')}
@@ -475,8 +446,7 @@ export default function ResearchDetailScreen() {
                 >
                   {commentLoading
                     ? <ActivityIndicator size="small" color="#fff" />
-                    : <Ionicons name="send" size={16} color="#fff" />
-                  }
+                    : <Ionicons name="send" size={16} color="#fff" />}
                 </TouchableOpacity>
               </View>
 
@@ -507,8 +477,8 @@ export default function ResearchDetailScreen() {
                 })
               )}
             </View>
+          )}
 
-          </View>
         </FadeInView>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -518,101 +488,186 @@ export default function ResearchDetailScreen() {
 function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl },
+    errorText: { ...typography.body, color: colors.text.secondary },
 
-    header: {
-      position: 'absolute',
-      top: 0, left: 0, right: 0,
-      zIndex: 10,
+    // ── Sticky Header ──
+    stickyHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       paddingTop: spacing.xxl,
-      paddingBottom: spacing.md,
+      paddingBottom: spacing.sm,
       paddingHorizontal: spacing.md,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
       gap: spacing.xs,
     },
-    iconBtn: {
+    headerBtn: {
       width: 40, height: 40,
-      borderRadius: 20,
-      backgroundColor: 'rgba(0,0,0,0.35)',
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: 'center', justifyContent: 'center',
+      borderRadius: radius.md,
     },
-    iconBtnFav: {
-      minWidth: 40, height: 40,
-      borderRadius: 20,
-      backgroundColor: 'rgba(0,0,0,0.35)',
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexDirection: 'row',
-      gap: 4,
-      paddingHorizontal: 10,
+    headerSlug: {
+      flex: 1,
+      ...typography.label,
+      color: colors.text.primary,
+      fontSize: 13,
     },
-    favCount: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: '#fff',
-    },
+    favCount: { fontSize: 10, color: '#f87171', fontWeight: '700', marginTop: -4 },
 
-    heroWrap: { position: 'relative' },
-    cover: { width: '100%', height: 280 },
+    scroll: { paddingBottom: spacing.xxl },
+
+    // ── Hero Row ──
+    heroRow: {
+      flexDirection: 'row',
+      gap: spacing.md,
+      padding: spacing.lg,
+      backgroundColor: colors.surface,
+    },
+    coverWrapper: {
+      ...shadows.md,
+      borderRadius: radius.md,
+      overflow: 'hidden',
+    },
+    cover: { width: COVER_W, height: COVER_H },
     coverPlaceholder: {
       backgroundColor: colors.primaryLight,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    heroGradient: {
-      position: 'absolute',
-      bottom: 0, left: 0, right: 0,
-      height: 80,
-      backgroundColor: 'rgba(0,0,0,0.25)',
+    heroInfo: {
+      flex: 1,
+      gap: spacing.xs,
+      justifyContent: 'flex-start',
     },
-
-    scroll: { paddingBottom: spacing.xxl },
-    content: { padding: spacing.lg, gap: spacing.md },
-
+    title: { ...typography.h3, color: colors.text.primary, lineHeight: 24 },
+    titleEn: { ...typography.caption, color: colors.text.secondary, lineHeight: 18 },
     accessBadge: {
-      flexDirection: 'row', alignItems: 'center',
-      alignSelf: 'flex-start', gap: 6,
-      paddingHorizontal: spacing.sm, paddingVertical: 4,
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      alignSelf: 'flex-start',
+      paddingHorizontal: spacing.sm, paddingVertical: 3,
       borderRadius: radius.full, borderWidth: 1,
     },
     accessDot: { width: 6, height: 6, borderRadius: 3 },
-    accessText: { fontSize: 12, fontWeight: '600' },
+    accessText: { fontSize: 11, fontWeight: '600' },
+    ratingInline: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+    },
+    ratingNum: { fontSize: 14, fontWeight: '700', color: colors.text.primary },
+    ratingInlineCount: { fontSize: 12, color: colors.text.muted },
+    statsInline: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+    },
+    statInlineTxt: { fontSize: 12, color: colors.text.muted },
+    statDot: { color: colors.border, fontSize: 12 },
 
-    title: { ...typography.h2, color: colors.text.primary },
-    titleEn: { ...typography.body, color: colors.text.secondary },
-
-    statsRow: {
-      flexDirection: 'row', alignItems: 'center',
+    // ── PDF Button ──
+    pdfBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
       gap: spacing.sm,
-      backgroundColor: colors.surface,
-      borderRadius: radius.md, padding: spacing.md,
-      borderWidth: 1, borderColor: colors.border,
+      marginHorizontal: spacing.lg,
+      marginTop: spacing.sm,
+      backgroundColor: colors.primary,
+      borderRadius: radius.md,
+      paddingVertical: spacing.md,
+      ...shadows.md,
     },
-    stat: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      flex: 1,
-      justifyContent: 'center',
-    },
-    statText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: colors.text.primary,
-    },
-    statDivider: { width: 1, height: 16, backgroundColor: colors.border },
+    pdfBtnText: { ...typography.label, color: '#fff', fontSize: 15 },
 
-    // Rating
-    ratingSection: {
+    // ── Details Grid ──
+    detailGrid: {
+      flexDirection: 'row',
+      marginHorizontal: spacing.lg,
+      marginTop: spacing.md,
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+    },
+    detailCell: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      gap: 4,
+    },
+    detailCellBorder: {
+      borderRightWidth: 1,
+      borderRightColor: colors.border,
+    },
+    detailValue: { ...typography.label, color: colors.text.primary, fontSize: 13, textAlign: 'center' },
+    detailLabel: { fontSize: 10, color: colors.text.muted, textAlign: 'center' },
+
+    // ── Tabs ──
+    tabs: {
+      flexDirection: 'row',
+      marginTop: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    tab: {
+      flex: 1,
+      paddingVertical: spacing.md,
+      alignItems: 'center',
+      borderBottomWidth: 2,
+      borderBottomColor: 'transparent',
+    },
+    tabActive: { borderBottomColor: colors.primary },
+    tabText: { ...typography.label, color: colors.text.muted, fontSize: 13 },
+    tabTextActive: { color: colors.primary },
+
+    // ── Tab Content ──
+    tabContent: {
+      padding: spacing.lg,
+      gap: spacing.md,
+    },
+    abstractText: {
+      ...typography.body,
+      color: colors.text.secondary,
+      lineHeight: 26,
+    },
+    infoRow: { gap: spacing.xs },
+    infoLabel: {
+      ...typography.label,
+      color: colors.text.primary,
+      paddingLeft: spacing.sm,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+    },
+    infoValue: { ...typography.body, color: colors.text.secondary },
+    keywords: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+    keyword: {
+      backgroundColor: colors.primaryLight,
+      borderRadius: radius.full,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+    },
+    keywordText: { ...typography.caption, color: colors.primary },
+    relatedCard: {
+      width: 100, marginRight: spacing.sm,
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    relatedCover: { width: 100, height: 140 },
+    relatedTitle: {
+      fontSize: 11, fontWeight: '600',
+      color: colors.text.primary,
+      padding: spacing.xs, lineHeight: 15,
+    },
+
+    // ── Rating Card ──
+    ratingCard: {
       flexDirection: 'row',
       backgroundColor: colors.primaryLight,
       borderRadius: radius.lg,
       padding: spacing.md,
       gap: spacing.lg,
       alignItems: 'center',
-      borderWidth: 0,
     },
     ratingLeft: {
       alignItems: 'center',
@@ -621,67 +676,14 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderRightWidth: 1,
       borderRightColor: colors.border,
     },
-    ratingScore: {
-      ...typography.h2,
-      color: colors.primary,
-      fontWeight: '700',
-    },
-    ratingCount: { ...typography.caption, color: colors.text.secondary },
-    ratingRight: {
-      flex: 1,
-      gap: 8,
-      alignItems: 'flex-start',
-    },
-    ratingLabel: {
-      ...typography.label,
-      color: colors.text.secondary,
-      fontSize: 12,
-    },
+    ratingBig: { ...typography.h2, color: colors.primary, fontWeight: '700' },
+    ratingCountTxt: { ...typography.caption, color: colors.text.secondary },
+    ratingRight: { flex: 1, gap: 8, alignItems: 'flex-start' },
+    ratingLabel: { ...typography.caption, color: colors.text.secondary },
 
-    pdfBtn: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      gap: spacing.sm, backgroundColor: colors.primary,
-      borderRadius: radius.md, paddingVertical: spacing.md, ...shadows.sm,
-    },
-    pdfBtnText: { ...typography.label, color: '#fff', fontSize: 15 },
-
-    section: { gap: spacing.xs },
-    sectionTitle: {
-      ...typography.label,
-      color: colors.text.primary,
-      fontSize: 15,
-      paddingLeft: spacing.sm,
-      borderLeftWidth: 3,
-      borderLeftColor: colors.primary,
-      borderRadius: 0,
-    },
-    sectionText: { ...typography.body, color: colors.text.secondary, lineHeight: 24 },
-
-    keywords: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-    keyword: {
-      backgroundColor: colors.primaryLight, borderRadius: radius.full,
-      paddingHorizontal: spacing.md, paddingVertical: spacing.xs,
-    },
-    keywordText: { ...typography.caption, color: colors.primary },
-
-    relatedScroll: { marginTop: spacing.xs },
-    relatedCard: {
-      width: 100, marginRight: spacing.sm,
-      backgroundColor: colors.surface, borderRadius: radius.md,
-      overflow: 'hidden', borderWidth: 1, borderColor: colors.border,
-    },
-    relatedCover: { width: 100, height: 140, backgroundColor: colors.primaryLight },
-    relatedPlaceholder: { alignItems: 'center', justifyContent: 'center' },
-    relatedTitle: {
-      fontSize: 11, fontWeight: '600',
-      color: colors.text.primary,
-      padding: spacing.xs, lineHeight: 15,
-    },
-
-    // Comments
-    commentInput: {
-      flexDirection: 'row', gap: spacing.sm,
-      alignItems: 'flex-end', marginTop: spacing.sm,
+    // ── Comments ──
+    commentInputRow: {
+      flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-end',
     },
     commentBox: {
       flex: 1, minHeight: 44, maxHeight: 120,
@@ -701,29 +703,19 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       textAlign: 'center', paddingVertical: spacing.lg,
     },
     commentItem: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: spacing.sm,
-      marginTop: spacing.sm,
+      flexDirection: 'row', alignItems: 'flex-start',
+      gap: spacing.sm, marginTop: spacing.sm,
     },
     commentAvatar: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 36, height: 36, borderRadius: 18,
       backgroundColor: colors.primaryLight,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: 'center', justifyContent: 'center',
       overflow: 'hidden',
-      borderWidth: 1.5,
-      borderColor: colors.primary + '30',
+      borderWidth: 1.5, borderColor: colors.primary + '30',
       flexShrink: 0,
     },
     avatarImg: { width: 36, height: 36 },
-    avatarInitials: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: colors.primary,
-    },
+    avatarInitials: { fontSize: 12, fontWeight: '700', color: colors.primary },
     commentBubble: {
       flex: 1,
       backgroundColor: colors.primaryLight,
@@ -733,26 +725,10 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       gap: 4,
     },
     commentHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     },
-    commentName: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: colors.primary,
-    },
-    commentTime: {
-      ...typography.caption,
-      color: colors.text.muted,
-      fontSize: 10,
-    },
-    commentText: {
-      ...typography.bodySmall,
-      color: colors.text.primary,
-      lineHeight: 20,
-    },
-
-    errorText: { ...typography.body, color: colors.text.secondary },
+    commentName: { fontSize: 12, fontWeight: '700', color: colors.primary },
+    commentTime: { ...typography.caption, color: colors.text.muted, fontSize: 10 },
+    commentText: { ...typography.bodySmall, color: colors.text.primary, lineHeight: 20 },
   });
 }
