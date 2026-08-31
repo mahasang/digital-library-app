@@ -1,6 +1,5 @@
 import { supabase } from '@/lib/supabase';
 import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -10,11 +9,8 @@ export async function signOut() {
 
 export async function signInWithGoogle(): Promise<{ error: string | null }> {
   try {
-    // redirect URI ที่ Supabase จะส่งกลับมา
-    const redirectUri = AuthSession.makeRedirectUri({
-      scheme: 'digitallibraryapp',
-      path: 'auth/callback',
-    });
+    // redirect URI ที่ Supabase จะส่งกลับมา — ใช้ native scheme โดยตรง
+    const redirectUri = 'digitallibraryapp://auth/callback';
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
