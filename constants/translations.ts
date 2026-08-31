@@ -90,6 +90,11 @@ export const translations = {
   field_confirm_pw:   { lo: 'ຢືນຢັນລະຫັດຜ່ານ',   th: 'ยืนยันรหัสผ่าน',   en: 'Confirm password',   vi: 'Xác nhận mật khẩu' },
   field_fullname:     { lo: 'ຊື່ເຕັມ',            th: 'ชื่อเต็ม',         en: 'Full name',          vi: 'Họ và tên' },
   field_org:          { lo: 'ໜ່ວຍງານ',            th: 'หน่วยงาน',         en: 'Organization',       vi: 'Tổ chức' },
+  field_phone:            { lo: 'ເບີໂທລະສັບ',       th: 'เบอร์โทรศัพท์',    en: 'Phone number',       vi: 'Số điện thoại' },
+  field_phone_placeholder:{ lo: '0812345678',       th: '0812345678',       en: '0812345678',         vi: '0812345678' },
+  field_dob:              { lo: 'ວັນເດືອນປີເກີດ',   th: 'วันเกิด',          en: 'Date of birth',      vi: 'Ngày sinh' },
+  field_dob_placeholder:  { lo: 'ເລືອກວັນເດືອນປີ',   th: 'เลือกวันเกิด',     en: 'Select date',        vi: 'Chọn ngày' },
+  field_address:          { lo: 'ທີ່ຢູ່',           th: 'ที่อยู่',          en: 'Address',            vi: 'Địa chỉ' },
 
   // ── Validation ──
   val_email_required: { lo: 'ກະລຸນາປ້ອນອີເມວ',   th: 'กรุณากรอกอีเมล',   en: 'Please enter email', vi: 'Vui lòng nhập email' },
@@ -110,6 +115,8 @@ export const translations = {
   account_edit:       { lo: 'ແກ້ໄຂໂປຣໄຟລ',        th: 'แก้ไขโปรไฟล์',     en: 'Edit profile',       vi: 'Sửa hồ sơ' },
   account_change_pw:  { lo: 'ປ່ຽນລະຫັດຜ່ານ',      th: 'เปลี่ยนรหัสผ่าน',  en: 'Change password',    vi: 'Đổi mật khẩu' },
   account_save:       { lo: 'ບັນທຶກ',              th: 'บันทึก',           en: 'Save',               vi: 'Lưu' },
+  account_avatar_permission: { lo: 'ກະລຸນາອະນຸຍາດເຂົ້າເຖິງຮູບພາບ', th: 'กรุณาอนุญาตให้เข้าถึงรูปภาพ', en: 'Please allow photo library access', vi: 'Vui lòng cho phép truy cập thư viện ảnh' },
+  account_avatar_error:      { lo: 'ອັບໂຫລດຮູບໂປຣໄຟລ໌ບໍ່ສຳເລັດ',   th: 'อัปโหลดรูปโปรไฟล์ไม่สำเร็จ',   en: 'Failed to upload avatar',           vi: 'Tải ảnh đại diện lên thất bại' },
   account_no_name:    { lo: 'ບໍ່ລະບຸຊື່',          th: 'ไม่ระบุชื่อ',      en: 'No name',            vi: 'Chưa đặt tên' },
   pw_current:         { lo: 'ລະຫັດຜ່ານປັດຈຸບັນ',   th: 'รหัสผ่านปัจจุบัน', en: 'Current password',   vi: 'Mật khẩu hiện tại' },
   pw_new:             { lo: 'ລະຫັດຜ່ານໃໝ່',        th: 'รหัสผ่านใหม่',     en: 'New password',       vi: 'Mật khẩu mới' },
@@ -194,6 +201,17 @@ export const translations = {
   auth_verified:        { lo: 'ຢືນຢັນສຳເລັດ',                          th: 'ยืนยันสำเร็จ',                     en: 'Verified!',                 vi: 'Xác nhận thành công!' },
   auth_verify_failed:   { lo: 'ການຢືນຢັນລົ້ມເຫລວ',                     th: 'การยืนยันล้มเหลว',                 en: 'Verification failed',       vi: 'Xác nhận thất bại' },
   auth_email_confirmed: { lo: 'ຢືນຢັນອີເມວສຳເລັດ ກະລຸນາເຂົ້າສູ່ລະບົບ', th: 'ยืนยันอีเมลสำเร็จ กรุณาเข้าสู่ระบบ', en: 'Email confirmed. Please sign in.', vi: 'Xác nhận email thành công. Vui lòng đăng nhập.' },
+
+  // ── About / Settings menu ──
+  settings_privacy: { lo: 'ນະໂຍບາຍຄວາມເປັນສ່ວນຕົວ', th: 'นโยบายความเป็นส่วนตัว', en: 'Privacy Policy',    vi: 'Chính sách bảo mật' },
+  settings_terms:   { lo: 'ເງື່ອນໄຂການໃຊ້ງານ',       th: 'เงื่อนไขการใช้งาน',   en: 'Terms of Service', vi: 'Điều khoản sử dụng' },
+  settings_rate:    { lo: 'ໃຫ້ຄະແນນແອັບ',            th: 'ให้คะแนนแอป',         en: 'Rate the app',     vi: 'Đánh giá ứng dụng' },
+  settings_bug:     { lo: 'ລາຍງານບັນຫາ',              th: 'รายงานปัญหา',          en: 'Report a bug',     vi: 'Báo lỗi' },
+  settings_version: { lo: 'ເວີຊັນແອັບ',               th: 'เวอร์ชันแอป',          en: 'App version',      vi: 'Phiên bản' },
+  settings_about:   { lo: 'ກ່ຽວກັບ',                  th: 'เกี่ยวกับ',            en: 'About',            vi: 'Giới thiệu' },
+
+  // ── Register Google Sign-In ──
+  register_google: { lo: 'ສະໝັກດ້ວຍ Google', th: 'สมัครด้วย Google', en: 'Continue with Google', vi: 'Đăng ký với Google' },
 } as const;
 
 export type TranslationKey = keyof typeof translations;

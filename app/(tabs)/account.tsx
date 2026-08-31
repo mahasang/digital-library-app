@@ -1,18 +1,33 @@
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal, TextInput as RNTextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal, TextInput as RNTextInput, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { spacing, typography, radius, shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { useSession } from '@/hooks/useSession';
 import { useLanguage, useT, AppLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/Button';
 import { signOut } from '@/lib/auth';
-import { getMyProfile, UserProfile } from '@/lib/profile';
+import { getMyProfile, uploadAvatar, UserProfile } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 import { FadeInView } from '@/components/ui/FadeInView';
 import { useMemo, useState, useEffect } from 'react';
+
+// date_of_birth เก็บเป็น 'YYYY-MM-DD' string — แปลงผ่าน getFullYear/getMonth/getDate
+// แทน toISOString()/new Date(string) ตรงๆ เพื่อไม่ให้เลื่อนวันจาก UTC conversion
+function parseYMD(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+function formatYMD(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 const ROLE_LABELS: Record<string, string> = {
   guest: 'ຜູ້ຢ້ຽມຊົມ',
@@ -35,7 +50,12 @@ export default function AccountScreen() {
   const [editVisible, setEditVisible] = useState(false);
   const [editName, setEditName] = useState('');
   const [editOrg, setEditOrg] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editDate, setEditDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [editAddress, setEditAddress] = useState('');
   const [editLoading, setEditLoading] = useState(false);
+  const [avatarLoading, setAvatarLoading] = useState(false);
 
   const [pwVisible, setPwVisible] = useState(false);
   const [pwCurrent, setPwCurrent] = useState('');
@@ -104,6 +124,64 @@ export default function AccountScreen() {
             </View>
           </View>
 
+          {/* ── About section ── */}
+          <View style={styles.menuCard}>
+            {/* Privacy Policy */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => Linking.openURL('https://digital-library-sls.vercel.app/lo/privacy')}
+            >
+              <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary} />
+              <Text style={styles.menuText}>{t('settings_privacy')}</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            {/* Terms of Service */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => Linking.openURL('https://digital-library-sls.vercel.app/lo/terms')}
+            >
+              <Ionicons name="document-text-outline" size={20} color={colors.primary} />
+              <Text style={styles.menuText}>{t('settings_terms')}</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            {/* Rate the app */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => Linking.openURL('market://details?id=la.org.digitallibrary.mobile')}
+            >
+              <Ionicons name="star-outline" size={20} color={colors.primary} />
+              <Text style={styles.menuText}>{t('settings_rate')}</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            {/* Report bug */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => Linking.openURL('mailto:info@digitallibrary.la?subject=Bug Report')}
+            >
+              <Ionicons name="bug-outline" size={20} color={colors.primary} />
+              <Text style={styles.menuText}>{t('settings_bug')}</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
+            </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            {/* App version */}
+            <View style={styles.menuItem}>
+              <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
+              <Text style={styles.menuText}>{t('settings_version')}</Text>
+              <Text style={styles.menuVersion}>1.0.0</Text>
+            </View>
+          </View>
+
           {/* Guest login prompt */}
           <View style={styles.center}>
             <Ionicons name="person-circle-outline" size={80} color={colors.text.muted} />
@@ -139,7 +217,12 @@ export default function AccountScreen() {
             setLoading(true);
             const { error } = await signOut();
             setLoading(false);
-            if (error) Alert.alert(t('common_error'), error.message);
+            if (error) {
+              Alert.alert(t('common_error'), error.message);
+              return;
+            }
+            // replace ทั้ง stack กลับไปหน้าแรก ป้องกัน back กลับมา login
+            router.replace('/(tabs)' as any);
           },
         },
       ]
@@ -149,6 +232,9 @@ export default function AccountScreen() {
   function openEdit() {
     setEditName(profile?.full_name ?? '');
     setEditOrg(profile?.organization_name ?? '');
+    setEditPhone(profile?.phone ?? '');
+    setEditDate(profile?.date_of_birth ? parseYMD(profile.date_of_birth) : null);
+    setEditAddress(profile?.address ?? '');
     setEditVisible(true);
   }
 
@@ -160,17 +246,57 @@ export default function AccountScreen() {
       Alert.alert(t('common_error'), t('common_no_user'));
       return;
     }
+    const dateOfBirth = editDate ? formatYMD(editDate) : null;
     const { error } = await supabase.from('profiles').update({
       full_name: editName.trim(),
       organization_name: editOrg.trim(),
+      phone: editPhone.trim() || null,
+      date_of_birth: dateOfBirth,
+      address: editAddress.trim() || null,
     }).eq('id', user.id);
     setEditLoading(false);
     if (error) {
       Alert.alert(t('common_error'), t('common_save_error'));
       return;
     }
-    setProfile(p => p ? { ...p, full_name: editName.trim(), organization_name: editOrg.trim() } : p);
+    setProfile(p => p ? {
+      ...p,
+      full_name: editName.trim(),
+      organization_name: editOrg.trim(),
+      phone: editPhone.trim() || null,
+      date_of_birth: dateOfBirth,
+      address: editAddress.trim() || null,
+    } : p);
     setEditVisible(false);
+  }
+
+  async function pickAndUploadAvatar() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(t('common_error'), t('account_avatar_permission'));
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+    if (result.canceled || !result.assets[0]) return;
+
+    const asset = result.assets[0];
+    const mimeType = asset.mimeType ?? 'image/jpeg';
+
+    setAvatarLoading(true);
+    const { url, error } = await uploadAvatar(asset.uri, mimeType);
+    setAvatarLoading(false);
+
+    if (error || !url) {
+      Alert.alert(t('common_error'), t('account_avatar_error'));
+      return;
+    }
+    setProfile(p => p ? { ...p, avatar_url: url } : p);
   }
 
   async function changePassword() {
@@ -240,19 +366,28 @@ export default function AccountScreen() {
       >
         <FadeInView style={styles.fadeGroup}>
         <View style={styles.profileCard}>
-          {profile?.avatar_url ? (
-            <Image
-              source={{ uri: profile.avatar_url }}
-              style={styles.avatarImage}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-              transition={200}
-            />
-          ) : (
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials}</Text>
+          <TouchableOpacity
+            onPress={pickAndUploadAvatar}
+            disabled={avatarLoading}
+            style={styles.avatarWrap}
+          >
+            {profile?.avatar_url ? (
+              <Image
+                source={{ uri: profile.avatar_url }}
+                style={styles.avatarImage}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={200}
+              />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initials}</Text>
+              </View>
+            )}
+            <View style={styles.avatarEditBadge}>
+              <Ionicons name="camera" size={12} color="#fff" />
             </View>
-          )}
+          </TouchableOpacity>
           <View style={styles.profileInfo}>
             <Text style={styles.fullName}>
               {profile?.full_name ?? t('account_no_name')}
@@ -352,6 +487,64 @@ export default function AccountScreen() {
           </View>
         </View>
 
+        {/* ── About section ── */}
+        <View style={styles.menuCard}>
+          {/* Privacy Policy */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => Linking.openURL('https://digital-library-sls.vercel.app/lo/privacy')}
+          >
+            <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary} />
+            <Text style={styles.menuText}>{t('settings_privacy')}</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          {/* Terms of Service */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => Linking.openURL('https://digital-library-sls.vercel.app/lo/terms')}
+          >
+            <Ionicons name="document-text-outline" size={20} color={colors.primary} />
+            <Text style={styles.menuText}>{t('settings_terms')}</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          {/* Rate the app */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => Linking.openURL('market://details?id=la.org.digitallibrary.mobile')}
+          >
+            <Ionicons name="star-outline" size={20} color={colors.primary} />
+            <Text style={styles.menuText}>{t('settings_rate')}</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          {/* Report bug */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => Linking.openURL('mailto:info@digitallibrary.la?subject=Bug Report')}
+          >
+            <Ionicons name="bug-outline" size={20} color={colors.primary} />
+            <Text style={styles.menuText}>{t('settings_bug')}</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.text.muted} />
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          {/* App version */}
+          <View style={styles.menuItem}>
+            <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
+            <Text style={styles.menuText}>{t('settings_version')}</Text>
+            <Text style={styles.menuVersion}>1.0.0</Text>
+          </View>
+        </View>
+
         <Button
           title={t('account_logout')}
           onPress={handleLogout}
@@ -387,6 +580,48 @@ export default function AccountScreen() {
               onChangeText={setEditOrg}
               placeholder={t('field_org')}
               placeholderTextColor={colors.text.muted}
+            />
+            <Text style={styles.modalLabel}>{t('field_phone')}</Text>
+            <RNTextInput
+              style={styles.modalInput}
+              value={editPhone}
+              onChangeText={setEditPhone}
+              placeholder={t('field_phone_placeholder')}
+              placeholderTextColor={colors.text.muted}
+              keyboardType="phone-pad"
+            />
+            <Text style={styles.modalLabel}>{t('field_dob')}</Text>
+            <TouchableOpacity
+              style={styles.datePickerBtn}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={[styles.datePickerText, !editDate && { color: colors.text.muted }]}>
+                {editDate ? editDate.toLocaleDateString('lo-LA') : t('field_dob_placeholder')}
+              </Text>
+              <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+            </TouchableOpacity>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={editDate ?? new Date(2000, 0, 1)}
+                mode="date"
+                display="spinner"
+                maximumDate={new Date()}
+                onChange={(event, date) => {
+                  setShowDatePicker(false);
+                  if (date) setEditDate(date);
+                }}
+              />
+            )}
+            <Text style={styles.modalLabel}>{t('field_address')}</Text>
+            <RNTextInput
+              style={[styles.modalInput, styles.modalTextArea]}
+              value={editAddress}
+              onChangeText={setEditAddress}
+              placeholder={t('field_address')}
+              placeholderTextColor={colors.text.muted}
+              multiline
+              numberOfLines={3}
             />
             <Button title={t('account_save')} onPress={saveProfile} loading={editLoading} style={{ marginTop: spacing.md }} />
           </View>
@@ -473,6 +708,9 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       borderColor: colors.border,
       ...shadows.sm,
     },
+    avatarWrap: {
+      position: 'relative',
+    },
     avatar: {
       width: 64, height: 64,
       borderRadius: radius.full,
@@ -484,6 +722,19 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       width: 64,
       height: 64,
       borderRadius: radius.full,
+    },
+    avatarEditBadge: {
+      position: 'absolute',
+      bottom: -2,
+      right: -2,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.surface,
     },
     avatarText: { ...typography.h2, color: '#fff' },
     profileInfo: { flex: 1, gap: 4 },
@@ -524,6 +775,11 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       padding: spacing.md,
     },
     menuText: { ...typography.body, color: colors.text.primary, flex: 1 },
+    menuVersion: {
+      ...typography.caption,
+      color: colors.text.muted,
+      marginLeft: 'auto' as any,
+    },
     divider: { height: 1, backgroundColor: colors.border, marginHorizontal: spacing.md },
     themeButtons: { flexDirection: 'row', gap: 6 },
     themeBtn: {
@@ -593,6 +849,26 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       ...typography.body,
       color: colors.text.primary,
       backgroundColor: colors.background,
+    },
+    modalTextArea: {
+      height: 80,
+      paddingTop: spacing.sm,
+      textAlignVertical: 'top',
+    },
+    datePickerBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.md,
+      height: 52,
+      backgroundColor: colors.background,
+    },
+    datePickerText: {
+      ...typography.body,
+      color: colors.text.primary,
     },
   });
 }

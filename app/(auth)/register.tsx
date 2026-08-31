@@ -2,12 +2,15 @@ import React, { useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   KeyboardAvoidingView, Platform, Alert, TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as AuthSession from 'expo-auth-session';
 import { supabase } from '@/lib/supabase';
+import { signInWithGoogle } from '@/lib/auth';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { spacing, typography, radius } from '@/constants/theme';
@@ -19,9 +22,11 @@ export default function RegisterScreen() {
   const t = useT();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errors, setErrors] = useState<{
     email?: string; password?: string; confirmPassword?: string;
   }>({});
@@ -52,7 +57,10 @@ export default function RegisterScreen() {
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: { emailRedirectTo: redirectUri },
+      options: {
+        emailRedirectTo: redirectUri,
+        data: { phone: phone.trim() || null },
+      },
     });
     setLoading(false);
     if (error) {
@@ -72,6 +80,15 @@ export default function RegisterScreen() {
       t('register_verify'),
       [{ text: t('common_ok'), onPress: () => router.replace('/(auth)/login') }]
     );
+  }
+
+  async function handleGoogleRegister() {
+    setGoogleLoading(true);
+    const { error } = await signInWithGoogle();
+    setGoogleLoading(false);
+    if (error) {
+      Alert.alert(t('common_error'), error);
+    }
   }
 
   return (
@@ -118,6 +135,14 @@ export default function RegisterScreen() {
           />
 
           <Input
+            label={t('field_phone')}
+            placeholder={t('field_phone_placeholder')}
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+          />
+
+          <Input
             label={t('field_password')}
             placeholder="••••••••"
             value={password}
@@ -141,6 +166,34 @@ export default function RegisterScreen() {
             loading={loading}
             style={styles.mainBtn}
           />
+
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>{t('login_or')}</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Google */}
+          <TouchableOpacity
+            style={styles.googleBtn}
+            onPress={handleGoogleRegister}
+            disabled={googleLoading}
+            activeOpacity={0.8}
+          >
+            {googleLoading ? (
+              <ActivityIndicator size="small" color={colors.text.primary} />
+            ) : (
+              <>
+                <Image
+                  source={{ uri: 'https://www.google.com/favicon.ico' }}
+                  style={styles.googleIcon}
+                  contentFit="contain"
+                />
+                <Text style={styles.googleBtnText}>{t('register_google')}</Text>
+              </>
+            )}
+          </TouchableOpacity>
 
           <Button
             title={t('register_has_account')}
@@ -190,5 +243,16 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
     title: { ...typography.h2, color: colors.text.primary, marginBottom: spacing.xs },
     subtitle: { ...typography.body, color: colors.text.secondary, marginBottom: spacing.lg },
     mainBtn: { marginTop: spacing.sm, marginBottom: spacing.sm },
+    divider: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginVertical: spacing.sm },
+    dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+    dividerText: { ...typography.caption, color: colors.text.muted },
+    googleBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: spacing.sm, height: 48, borderRadius: radius.md,
+      borderWidth: 1.5, borderColor: colors.border,
+      backgroundColor: colors.surface, marginBottom: spacing.sm,
+    },
+    googleIcon: { width: 20, height: 20 },
+    googleBtnText: { ...typography.label, color: colors.text.primary },
   });
 }
