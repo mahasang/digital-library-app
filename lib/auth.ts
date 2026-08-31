@@ -32,28 +32,30 @@ export async function signInWithGoogle(): Promise<{ error: string | null }> {
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
 
     if (result.type !== 'success') {
-      return { error: null }; // user ปิด browser เอง ไม่ใช่ error
+      return { error: null };
     }
 
-    // ดึง tokens จาก URL
-    const url = new URL(result.url);
-    const accessToken = url.searchParams.get('access_token')
-      ?? new URLSearchParams(url.hash.slice(1)).get('access_token');
-    const refreshToken = url.searchParams.get('refresh_token')
-      ?? new URLSearchParams(url.hash.slice(1)).get('refresh_token');
+    // parse token จาก URL fragment (#access_token=...) ซึ่ง Supabase ใช้
+    const rawUrl = result.url;
+    const hashPart = rawUrl.includes('#') ? rawUrl.split('#')[1] : '';
+    const queryPart = rawUrl.includes('?') ? rawUrl.split('?')[1].split('#')[0] : '';
+
+    const hashParams = new URLSearchParams(hashPart);
+    const queryParams = new URLSearchParams(queryPart);
+
+    const accessToken = hashParams.get('access_token') ?? queryParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token') ?? queryParams.get('refresh_token') ?? '';
 
     if (!accessToken) {
       return { error: 'No access token received' };
     }
 
-    // set session ใน Supabase
     const { error: sessionError } = await supabase.auth.setSession({
       access_token: accessToken,
-      refresh_token: refreshToken ?? '',
+      refresh_token: refreshToken,
     });
 
     if (sessionError) return { error: sessionError.message };
-
     return { error: null };
   } catch (e: any) {
     return { error: e?.message ?? 'Unknown error' };
