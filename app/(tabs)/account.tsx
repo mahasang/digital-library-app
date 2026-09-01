@@ -83,6 +83,27 @@ export default function AccountScreen() {
           </TouchableOpacity>
         </View>
         <ScrollView contentContainerStyle={styles.scroll}>
+          {/* Login/Register Card */}
+          <View style={styles.loginCard}>
+            <View style={styles.loginCardIcon}>
+              <Ionicons name="person-circle-outline" size={48} color={colors.primary} />
+            </View>
+            <Text style={styles.loginCardTitle}>{t('account_guest')}</Text>
+            <Text style={styles.loginCardSub}>{t('account_guest_sub')}</Text>
+            <TouchableOpacity
+              style={styles.loginCardBtn}
+              onPress={() => router.push('/(auth)/login')}
+            >
+              <Text style={styles.loginCardBtnText}>{t('login_btn')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.loginCardBtnOutline}
+              onPress={() => router.push('/(auth)/register')}
+            >
+              <Text style={styles.loginCardBtnOutlineText}>{t('register_btn')}</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Settings card สำหรับ guest */}
           <View style={styles.menuCard}>
             {/* Theme toggle */}
@@ -180,24 +201,6 @@ export default function AccountScreen() {
               <Text style={styles.menuText}>{t('settings_version')}</Text>
               <Text style={styles.menuVersion}>1.0.0</Text>
             </View>
-          </View>
-
-          {/* Guest login prompt */}
-          <View style={styles.center}>
-            <Ionicons name="person-circle-outline" size={80} color={colors.text.muted} />
-            <Text style={styles.guestTitle}>{t('account_guest')}</Text>
-            <Text style={styles.guestSub}>{t('account_guest_sub')}</Text>
-            <Button
-              title={t('login_btn')}
-              onPress={() => router.push('/(auth)/login')}
-              style={styles.loginBtn}
-            />
-            <Button
-              title={t('register_btn')}
-              onPress={() => router.push('/(auth)/register')}
-              variant="outline"
-              style={styles.registerBtn}
-            />
           </View>
         </ScrollView>
       </View>
@@ -808,11 +811,46 @@ function createStyles(colors: ReturnType<typeof useTheme>['colors']) {
       color: colors.text.secondary,
     },
     logoutBtn: { borderColor: colors.error },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
-    guestTitle: { ...typography.h3, color: colors.text.primary },
-    guestSub: { ...typography.body, color: colors.text.secondary, textAlign: 'center' },
-    loginBtn: { width: '100%', marginTop: spacing.sm },
-    registerBtn: { width: '100%' },
+    loginCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.xl,
+      padding: spacing.lg,
+      alignItems: 'center',
+      gap: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...shadows.sm,
+    },
+    loginCardIcon: {
+      width: 80, height: 80,
+      borderRadius: 40,
+      backgroundColor: colors.primaryLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.xs,
+    },
+    loginCardTitle: { ...typography.h3, color: colors.text.primary },
+    loginCardSub: { ...typography.bodySmall, color: colors.text.secondary, textAlign: 'center' },
+    loginCardBtn: {
+      width: '100%',
+      height: 48,
+      borderRadius: radius.md,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: spacing.xs,
+    },
+    loginCardBtnText: { ...typography.label, color: '#fff' },
+    loginCardBtnOutline: {
+      width: '100%',
+      height: 48,
+      borderRadius: radius.md,
+      borderWidth: 1.5,
+      borderColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    loginCardBtnOutlineText: { ...typography.label, color: colors.primary },
     editProfileBtn: {
       position: 'absolute',
       top: spacing.md,

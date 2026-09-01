@@ -7,6 +7,9 @@ export type UserProfile = {
   email: string | null;
   organization_name: string | null;
   avatar_url: string | null;
+  phone: string | null;
+  date_of_birth: string | null;
+  address: string | null;
   role: string | null;
 };
 
@@ -18,7 +21,8 @@ export async function getMyProfile(): Promise<UserProfile | null> {
     .from('profiles')
     .select(`
       id, full_name, email,
-      organization_name, avatar_url
+      organization_name, avatar_url,
+      phone, date_of_birth, address
     `)
     .eq('id', user.id)
     .single();
@@ -43,6 +47,47 @@ export async function getMyProfile(): Promise<UserProfile | null> {
     email: user.email ?? null,
     role: topRole?.name ?? 'member',
   };
+}
+
+// อัปโหลดรูปโปรไฟล์ — path คงที่ {uid}/avatar.{ext} ต่อคนเดียว (upsert:true
+// แทนที่ของเดิมเสมอ) ตรง bucket "avatars" เดียวกับฝั่งเว็บ (ดู
+// supabase/migrations/20260831120000_add_profile_fields.sql) ใช้ arrayBuffer
+// แทน File/Blob ตรงๆ เพราะ React Native ไม่มี Blob จาก local file URI ให้ใช้
+// ตรงๆ แบบเบราว์เซอร์ — ต้อง fetch() URI ของไฟล์ในเครื่องก่อนแปลงเป็น arrayBuffer
+export async function uploadAvatar(
+  uri: string,
+  mimeType: string
+): Promise<{ url: string | null; error: string | null }> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { url: null, error: 'not signed in' };
+
+  const ext = mimeType.split('/')[1] ?? 'jpg';
+  const path = `${user.id}/avatar.${ext}`;
+
+  let arraybuffer: ArrayBuffer;
+  try {
+    arraybuffer = await fetch(uri).then((res) => res.arrayBuffer());
+  } catch {
+    return { url: null, error: 'read file failed' };
+  }
+
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(path, arraybuffer, { contentType: mimeType, upsert: true });
+
+  if (uploadError) return { url: null, error: uploadError.message };
+
+  const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+  // กัน cache เดิมของ path เดียวกัน (upsert ทับไฟล์แต่ URL ไม่เปลี่ยน)
+  const cacheBustedUrl = `${publicUrl}?v=${Date.now()}`;
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ avatar_url: cacheBustedUrl })
+    .eq('id', user.id);
+  if (error) return { url: null, error: error.message };
+
+  return { url: cacheBustedUrl, error: null };
 }
 
 // Favorites
