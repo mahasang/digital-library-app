@@ -7,9 +7,17 @@ export async function signOut() {
   return supabase.auth.signOut();
 }
 
+function getParam(fragment: string, key: string): string | null {
+  const pairs = fragment.split('&');
+  for (const pair of pairs) {
+    const [k, v] = pair.split('=');
+    if (k === key) return decodeURIComponent(v ?? '');
+  }
+  return null;
+}
+
 export async function signInWithGoogle(): Promise<{ error: string | null }> {
   try {
-    // redirect URI ที่ Supabase จะส่งกลับมา — ใช้ native scheme โดยตรง
     const redirectUri = 'digitallibraryapp://auth/callback';
 
     const { data, error } = await supabase.auth.signInWithOAuth({
@@ -24,26 +32,23 @@ export async function signInWithGoogle(): Promise<{ error: string | null }> {
       return { error: error?.message ?? 'OAuth URL not found' };
     }
 
-    // เปิด browser
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
 
     if (result.type !== 'success') {
       return { error: null };
     }
 
-    // parse token จาก URL fragment (#access_token=...) ซึ่ง Supabase ใช้
-    const rawUrl = result.url;
-    const hashPart = rawUrl.includes('#') ? rawUrl.split('#')[1] : '';
-    const queryPart = rawUrl.includes('?') ? rawUrl.split('?')[1].split('#')[0] : '';
+    const url = (result as any).url as string;
 
-    const hashParams = new URLSearchParams(hashPart);
-    const queryParams = new URLSearchParams(queryPart);
+    // แยก hash fragment ออกมา
+    const hashIndex = url.indexOf('#');
+    const fragment = hashIndex >= 0 ? url.slice(hashIndex + 1) : '';
 
-    const accessToken = hashParams.get('access_token') ?? queryParams.get('access_token');
-    const refreshToken = hashParams.get('refresh_token') ?? queryParams.get('refresh_token') ?? '';
+    const accessToken = getParam(fragment, 'access_token');
+    const refreshToken = getParam(fragment, 'refresh_token') ?? '';
 
     if (!accessToken) {
-      return { error: 'No access token received' };
+      return { error: 'No access_token in URL' };
     }
 
     const { error: sessionError } = await supabase.auth.setSession({
@@ -53,6 +58,7 @@ export async function signInWithGoogle(): Promise<{ error: string | null }> {
 
     if (sessionError) return { error: sessionError.message };
     return { error: null };
+
   } catch (e: any) {
     return { error: e?.message ?? 'Unknown error' };
   }

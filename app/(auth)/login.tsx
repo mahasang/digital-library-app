@@ -63,7 +63,6 @@ export default function LoginScreen() {
     setGoogleLoading(false);
     if (error) {
       Alert.alert(t('common_error'), error);
-      return;
     }
     // session จะถูก set อัตโนมัติ useSession hook จะ detect และ redirect
   }
