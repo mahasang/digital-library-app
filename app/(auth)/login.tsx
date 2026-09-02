@@ -64,9 +64,7 @@ export default function LoginScreen() {
   }
 
   function handleForgotPassword() {
-    Alert.alert(t("login_forgot"), t("common_forgot_msg"), [
-      { text: t("common_ok") },
-    ]);
+    router.push('/(auth)/forgot-password' as any);
   }
 
   async function handleGoogleLogin() {
