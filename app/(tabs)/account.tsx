@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal, TextInput as RNTextInput, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal, TextInput as RNTextInput, Linking, Switch } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -12,6 +12,7 @@ import { useLanguage, useT, AppLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/Button';
 import { signOut } from '@/lib/auth';
 import { getMyProfile, uploadAvatar, UserProfile } from '@/lib/profile';
+import { getNotificationPreferences, updateNotificationPreference } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { FadeInView } from '@/components/ui/FadeInView';
 import { useMemo, useState, useEffect } from 'react';
@@ -63,8 +64,17 @@ export default function AccountScreen() {
   const [pwConfirm, setPwConfirm] = useState('');
   const [pwLoading, setPwLoading] = useState(false);
 
+  const [notifPrefs, setNotifPrefs] = useState<{
+    new_research_push_enabled: boolean;
+    comment_push_enabled: boolean;
+    system_push_enabled: boolean;
+  } | null>(null);
+
   useEffect(() => {
-    if (session) getMyProfile().then(setProfile);
+    if (session) {
+      getMyProfile().then(setProfile);
+      getNotificationPreferences().then(setNotifPrefs);
+    }
   }, [session]);
 
   if (session === undefined) return null;
@@ -488,6 +498,37 @@ export default function AccountScreen() {
               ))}
             </View>
           </View>
+
+          {/* Notification settings */}
+          {notifPrefs && (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.menuItem}>
+                <Ionicons name="notifications-outline" size={20} color={colors.primary} />
+                <Text style={styles.menuText}>{t('notif_settings')}</Text>
+              </View>
+              {[
+                { key: 'new_research_push_enabled' as const, label: t('notif_new_research') },
+                { key: 'comment_push_enabled' as const, label: t('notif_comment') },
+                { key: 'system_push_enabled' as const, label: t('notif_system') },
+              ].map(item => (
+                <View key={item.key} style={[styles.menuItem, { paddingLeft: spacing.xl }]}>
+                  <Text style={[styles.menuText, { flex: 1, color: colors.text.secondary }]}>
+                    {item.label}
+                  </Text>
+                  <Switch
+                    value={notifPrefs[item.key]}
+                    onValueChange={async (val) => {
+                      setNotifPrefs(prev => prev ? { ...prev, [item.key]: val } : prev);
+                      await updateNotificationPreference(item.key, val);
+                    }}
+                    trackColor={{ false: colors.border, true: colors.primary + '80' }}
+                    thumbColor={notifPrefs[item.key] ? colors.primary : colors.text.muted}
+                  />
+                </View>
+              ))}
+            </>
+          )}
         </View>
 
         {/* ── About section ── */}

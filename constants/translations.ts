@@ -909,6 +909,12 @@ export const translations = {
   forgot_btn:        { lo: 'ສົ່ງລິ້ງລີເຊັດ',          th: 'ส่งลิงก์รีเซ็ต',        en: 'Send reset link',        vi: 'Gửi link đặt lại' },
   forgot_sent_title: { lo: 'ສົ່ງອີເມວສຳເລັດ',          th: 'ส่งอีเมลสำเร็จ',        en: 'Email sent',             vi: 'Đã gửi email' },
   forgot_sent_sub:   { lo: 'ກວດສອບອີເມວຂອງທ່ານ ແລະ ກົດລິ້ງລີເຊັດລະຫັດຜ່ານ', th: 'ตรวจสอบอีเมลและคลิกลิงก์รีเซ็ต', en: 'Check your email and click the reset link', vi: 'Kiểm tra email và nhấn link đặt lại' },
+
+  // ── Push notification preferences ──
+  notif_settings:     { lo: 'ການຕັ້ງຄ່າການແຈ້ງເຕືອນ', th: 'การตั้งค่าการแจ้งเตือน', en: 'Notification settings', vi: 'Cài đặt thông báo' },
+  notif_new_research: { lo: 'ງານວິໄຈໃໝ່ໃນໝວດທີ່ຕິດຕາມ', th: 'งานวิจัยใหม่ในหมวดที่ติดตาม', en: 'New research in followed categories', vi: 'Nghiên cứu mới trong danh mục theo dõi' },
+  notif_comment:      { lo: 'ມີຄຳເຫັນໃໝ່',              th: 'มีความคิดเห็นใหม่',        en: 'New comments',                       vi: 'Bình luận mới' },
+  notif_system:       { lo: 'ແຈ້ງເຕືອນຈາກລະບົບ',        th: 'แจ้งเตือนจากระบบ',         en: 'System notifications',               vi: 'Thông báo hệ thống' },
 } as const;
 
 export type TranslationKey = keyof typeof translations;
