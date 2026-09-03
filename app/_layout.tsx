@@ -4,7 +4,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
-import { registerPushToken, savePushToken } from '@/lib/notifications';
+import { registerPushToken, savePushToken, clearPushToken } from '@/lib/notifications';
+import { supabase } from '@/lib/supabase';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -15,10 +16,18 @@ export default function RootLayout() {
   useEffect(() => {
     SplashScreen.hideAsync();
 
-    // Register push token
-    registerPushToken().then(token => {
-      if (token) savePushToken(token);
-    });
+    // Register push token เมื่อ user login
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          const token = await registerPushToken();
+          if (token) await savePushToken(token);
+        }
+        if (event === 'SIGNED_OUT') {
+          await clearPushToken();
+        }
+      }
+    );
 
     // Listener: notification received ขณะ app เปิด
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
@@ -39,6 +48,7 @@ export default function RootLayout() {
     return () => {
       notificationListener.current?.remove();
       responseListener.current?.remove();
+      subscription.unsubscribe();
     };
   }, []);
 

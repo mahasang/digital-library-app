@@ -60,14 +60,14 @@ export async function savePushToken(token: string): Promise<void> {
     .eq('id', user.id);
 }
 
-export async function clearPushToken(): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-
-  await supabase
+export async function clearPushToken(userId?: string): Promise<void> {
+  const supabase_client = supabase;
+  const uid = userId ?? (await supabase_client.auth.getUser()).data.user?.id;
+  if (!uid) return;
+  await supabase_client
     .from('profiles')
     .update({ push_token: null })
-    .eq('id', user.id);
+    .eq('id', uid);
 }
 
 export async function getNotificationPreferences() {

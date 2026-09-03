@@ -12,7 +12,7 @@ import { useLanguage, useT, AppLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/Button';
 import { signOut } from '@/lib/auth';
 import { getMyProfile, uploadAvatar, UserProfile } from '@/lib/profile';
-import { getNotificationPreferences, updateNotificationPreference } from '@/lib/notifications';
+import { getNotificationPreferences, updateNotificationPreference, clearPushToken } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { FadeInView } from '@/components/ui/FadeInView';
 import { useMemo, useState, useEffect } from 'react';
@@ -228,6 +228,7 @@ export default function AccountScreen() {
           style: 'destructive',
           onPress: async () => {
             setLoading(true);
+            await clearPushToken(); // ล้าง token ก่อน logout
             const { error } = await signOut();
             setLoading(false);
             if (error) {
