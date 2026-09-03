@@ -12,6 +12,7 @@
       "supportsTablet": true
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "package": "la.org.digitallibrary.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#185ff2",
