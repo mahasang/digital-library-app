@@ -90,7 +90,10 @@ export default function NotificationsScreen() {
       style={[styles.card, !item.read_at && styles.cardUnread]}
       onPress={() => {
         markRead(item.id);
-        if (item.research_items?.slug) router.push(`/research/${item.research_items.slug}` as any);
+        if (item.research_items?.slug) {
+          const tab = item.type === 'info' ? '?tab=comments' : '';
+          router.push(`/research/${item.research_items.slug}${tab}` as any);
+        }
       }}
       activeOpacity={0.7}
     >

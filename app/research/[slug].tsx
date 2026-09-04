@@ -87,7 +87,7 @@ export default function ResearchDetailScreen() {
   const t = useT();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const session = useSession();
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+  const { slug, tab } = useLocalSearchParams<{ slug: string; tab: string }>();
 
   const [item, setItem] = useState<ResearchItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,7 +101,7 @@ export default function ResearchDetailScreen() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>('abstract');
+  const [activeTab, setActiveTab] = useState<Tab>(tab === 'comments' ? 'comments' : 'abstract');
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
 
