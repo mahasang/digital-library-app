@@ -102,6 +102,8 @@ export default function ResearchDetailScreen() {
   const [commentText, setCommentText] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('abstract');
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
 
   useEffect(() => {
     if (!slug) return;
@@ -195,6 +197,40 @@ export default function ResearchDetailScreen() {
     if (error) { Alert.alert(t('common_error'), t('common_comment_error')); }
     else { setCommentText(''); await loadComments(item.id); }
     setCommentLoading(false);
+  }
+
+  async function handleDeleteComment(commentId: string) {
+    Alert.alert(
+      t('common_delete'),
+      'ທ່ານຕ້ອງການລຶບຄຳເຫັນນີ້ບໍ?',
+      [
+        { text: t('common_cancel'), style: 'cancel' },
+        {
+          text: t('common_delete'),
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await supabase
+              .from('comments')
+              .delete()
+              .eq('id', commentId);
+            if (!error && item) await loadComments(item.id);
+          },
+        },
+      ]
+    );
+  }
+
+  async function handleEditComment(commentId: string, newContent: string) {
+    if (!newContent.trim()) return;
+    const { error } = await supabase
+      .from('comments')
+      .update({ content: newContent.trim() })
+      .eq('id', commentId);
+    if (!error) {
+      setEditingCommentId(null);
+      setEditingText('');
+      if (item) await loadComments(item.id);
+    }
   }
 
   if (loading) {
@@ -456,6 +492,8 @@ export default function ResearchDetailScreen() {
               ) : (
                 comments.map(c => {
                   const initials = c.author_name.slice(0, 2).toUpperCase();
+                  const isOwn = !!session && c.user_id === session.user.id;
+                  const isEditing = editingCommentId === c.id;
                   return (
                     <View key={c.id} style={styles.commentItem}>
                       <View style={styles.commentAvatar}>
@@ -468,9 +506,49 @@ export default function ResearchDetailScreen() {
                       <View style={styles.commentBubble}>
                         <View style={styles.commentHeader}>
                           <Text style={styles.commentName}>{c.author_name}</Text>
-                          <Text style={styles.commentTime}>{relativeTime(c.created_at)}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={styles.commentTime}>{relativeTime(c.created_at)}</Text>
+                            {isOwn && !isEditing && (
+                              <>
+                                <TouchableOpacity onPress={() => {
+                                  setEditingCommentId(c.id);
+                                  setEditingText(c.content);
+                                }}>
+                                  <Ionicons name="pencil-outline" size={12} color={colors.text.muted} />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => handleDeleteComment(c.id)}>
+                                  <Ionicons name="trash-outline" size={12} color={colors.error} />
+                                </TouchableOpacity>
+                              </>
+                            )}
+                          </View>
                         </View>
-                        <Text style={styles.commentText}>{c.content}</Text>
+
+                        {isEditing ? (
+                          <View style={{ gap: 6 }}>
+                            <TextInput
+                              style={styles.commentBox}
+                              value={editingText}
+                              onChangeText={setEditingText}
+                              multiline
+                              maxLength={500}
+                              autoFocus
+                            />
+                            <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
+                              <TouchableOpacity onPress={() => {
+                                setEditingCommentId(null);
+                                setEditingText('');
+                              }}>
+                                <Text style={{ fontSize: 12, color: colors.text.muted }}>{t('common_cancel')}</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity onPress={() => handleEditComment(c.id, editingText)}>
+                                <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>{t('account_save')}</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        ) : (
+                          <Text style={styles.commentText}>{c.content}</Text>
+                        )}
                       </View>
                     </View>
                   );
