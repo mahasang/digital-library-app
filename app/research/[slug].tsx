@@ -15,6 +15,8 @@ import { useT } from '@/contexts/LanguageContext';
 import { getPublicResearch, getResearchBySlug, ResearchItem } from '@/lib/research';
 import { getFavorites, toggleFavorite, addReadingHistory } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
+import { setCache, getCache, CACHE_KEYS } from '@/lib/cache';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { Button } from '@/components/ui/Button';
 import { FadeInView } from '@/components/ui/FadeInView';
 
@@ -87,6 +89,7 @@ export default function ResearchDetailScreen() {
   const t = useT();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const session = useSession();
+  const { isOnline } = useNetworkStatus();
   const { slug, tab } = useLocalSearchParams<{ slug: string; tab: string }>();
 
   const [item, setItem] = useState<ResearchItem | null>(null);
@@ -107,11 +110,19 @@ export default function ResearchDetailScreen() {
 
   useEffect(() => {
     if (!slug) return;
-    getResearchBySlug(slug).then((data) => {
-      setItem(data);
-      setLoading(false);
-    });
-  }, [slug]);
+    if (isOnline) {
+      getResearchBySlug(slug).then((data) => {
+        setItem(data);
+        setLoading(false);
+        if (data) setCache(CACHE_KEYS.RESEARCH_DETAIL(slug), data);
+      });
+    } else {
+      getCache<ResearchItem>(CACHE_KEYS.RESEARCH_DETAIL(slug)).then(cached => {
+        setItem(cached);
+        setLoading(false);
+      });
+    }
+  }, [slug, isOnline]);
 
   useEffect(() => {
     if (!item) return;

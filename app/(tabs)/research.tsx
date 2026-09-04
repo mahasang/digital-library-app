@@ -12,6 +12,8 @@ import { spacing, typography, radius, shadows } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { useT } from '@/contexts/LanguageContext';
 import { getPublicResearch, ResearchItem } from '@/lib/research';
+import { setCache, getCache, CACHE_KEYS } from '@/lib/cache';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_GAP = 8;
@@ -53,6 +55,7 @@ type SectionData = {
 export default function ShelfScreen() {
   const { colors, isDark } = useTheme();
   const t = useT();
+  const { isOnline } = useNetworkStatus();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   // หนังสือโดดเด่น (sort by views)
@@ -83,12 +86,20 @@ export default function ShelfScreen() {
       });
     });
 
-    // โหลดทั้งหมด
-    getPublicResearch({ limit: 30 }).then(({ data }) => {
-      setAllItems(data);
-      setAllLoading(false);
-    });
-  }, []);
+    // โหลดทั้งหมด — online: fetch จริงแล้ว cache, offline: โหลดจาก cache
+    if (isOnline) {
+      getPublicResearch({ limit: 30 }).then(({ data }) => {
+        setAllItems(data);
+        setAllLoading(false);
+        setCache(CACHE_KEYS.RESEARCH_LIST, data);
+      });
+    } else {
+      getCache<ResearchItem[]>(CACHE_KEYS.RESEARCH_LIST).then(cached => {
+        if (cached) setAllItems(cached);
+        setAllLoading(false);
+      });
+    }
+  }, [isOnline]);
 
   // Card แนวนอน
   const renderHCard = ({ item }: { item: ResearchItem }) => (

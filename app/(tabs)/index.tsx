@@ -16,6 +16,8 @@ import { Card } from '@/components/ui/Card';
 import { getResearchStats, getPublicResearch, ResearchItem } from '@/lib/research';
 import { getMyProfile, UserProfile } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
+import { setCache, getCache, CACHE_KEYS } from '@/lib/cache';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const H_CARD_WIDTH = 140;
@@ -65,6 +67,7 @@ export default function HomeScreen() {
   const { colors, isDark } = useTheme();
   const t = useT();
   const session = useSession();
+  const { isOnline } = useNetworkStatus();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [stats, setStats] = useState({ research: 0, categories: 0, organizations: 0 });
@@ -79,22 +82,39 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    try {
-      getResearchStats().then(setStats).catch(err => console.error(err));
+    if (isOnline) {
+      // online: fetch จริง แล้ว cache
+      getResearchStats().then(data => {
+        setStats(data);
+        setCache(CACHE_KEYS.HOME_STATS, data);
+      }).catch(console.error);
+
       getPublicResearch({ limit: 10, sort: 'views' }).then(({ data, count }) => {
         setPopular(data);
         setPopularTotal(count);
         loadRatings(data);
-      }).catch(err => console.error(err));
+        setCache(CACHE_KEYS.HOME_POPULAR, { data, count });
+      }).catch(console.error);
+
       getPublicResearch({ limit: 10, sort: 'latest' }).then(({ data, count }) => {
         setLatest(data);
         setLatestTotal(count);
         loadRatings(data);
-      }).catch(err => console.error(err));
-    } catch (err) {
-      console.error(err);
+        setCache(CACHE_KEYS.HOME_LATEST, { data, count });
+      }).catch(console.error);
+    } else {
+      // offline: โหลดจาก cache
+      getCache<typeof stats>(CACHE_KEYS.HOME_STATS).then(cached => {
+        if (cached) setStats(cached);
+      });
+      getCache<{ data: ResearchItem[]; count: number }>(CACHE_KEYS.HOME_POPULAR).then(cached => {
+        if (cached) { setPopular(cached.data); setPopularTotal(cached.count); }
+      });
+      getCache<{ data: ResearchItem[]; count: number }>(CACHE_KEYS.HOME_LATEST).then(cached => {
+        if (cached) { setLatest(cached.data); setLatestTotal(cached.count); }
+      });
     }
-  }, []);
+  }, [isOnline]);
 
   useEffect(() => {
     if (session) getMyProfile().then(setProfile);

@@ -14,6 +14,8 @@ import { useSession } from '@/hooks/useSession';
 import { useT } from '@/contexts/LanguageContext';
 import { getFavoriteResearch, toggleFavorite } from '@/lib/profile';
 import { ResearchItem } from '@/lib/research';
+import { setCache, getCache, CACHE_KEYS } from '@/lib/cache';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { ResearchCardSkeleton } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
 
@@ -141,6 +143,7 @@ export default function FavoritesScreen() {
   const t = useT();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const session = useSession();
+  const { isOnline } = useNetworkStatus();
   const [items, setItems] = useState<ResearchItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -148,10 +151,16 @@ export default function FavoritesScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const data = await getFavoriteResearch();
-    setItems(data);
+    if (isOnline) {
+      const data = await getFavoriteResearch();
+      setItems(data);
+      setCache(CACHE_KEYS.FAVORITES, data);
+    } else {
+      const cached = await getCache<ResearchItem[]>(CACHE_KEYS.FAVORITES);
+      if (cached) setItems(cached);
+    }
     setLoading(false);
-  }, []);
+  }, [isOnline]);
 
   useEffect(() => {
     if (session) load();

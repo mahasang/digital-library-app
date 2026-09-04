@@ -243,6 +243,30 @@ export default function AccountScreen() {
     );
   }
 
+  async function handleDeleteAccount() {
+    Alert.alert(
+      t('account_delete'),
+      t('account_delete_warn'),
+      [
+        { text: t('common_cancel'), style: 'cancel' },
+        {
+          text: t('account_delete'),
+          style: 'destructive',
+          onPress: async () => {
+            await clearPushToken();
+            const { error } = await supabase.rpc('delete_own_account');
+            if (error) {
+              Alert.alert(t('common_error'), error.message);
+              return;
+            }
+            await signOut();
+            router.replace('/(tabs)' as any);
+          },
+        },
+      ]
+    );
+  }
+
   function openEdit() {
     setEditName(profile?.full_name ?? '');
     setEditOrg(profile?.organization_name ?? '');
@@ -588,6 +612,12 @@ export default function AccountScreen() {
             <Text style={styles.menuText}>{t('settings_version')}</Text>
             <Text style={styles.menuVersion}>1.0.0</Text>
           </View>
+
+          <View style={styles.divider} />
+          <TouchableOpacity style={styles.menuItem} onPress={handleDeleteAccount}>
+            <Ionicons name="trash-outline" size={20} color={colors.error} />
+            <Text style={[styles.menuText, { color: colors.error }]}>{t('account_delete')}</Text>
+          </TouchableOpacity>
         </View>
 
         <Button

@@ -6,10 +6,13 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { registerPushToken, savePushToken, clearPushToken } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { OfflineBanner } from '@/components/ui/OfflineBanner';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const { isOnline } = useNetworkStatus();
   const notificationListener = useRef<Notifications.EventSubscription | undefined>(undefined);
   const responseListener = useRef<Notifications.EventSubscription | undefined>(undefined);
 
@@ -55,6 +58,7 @@ export default function RootLayout() {
   return (
     <LanguageProvider>
       <ThemeProvider>
+        <OfflineBanner isOnline={isOnline} />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="(auth)" />

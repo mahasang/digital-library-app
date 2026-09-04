@@ -915,6 +915,11 @@ export const translations = {
   notif_new_research: { lo: 'ງານວິໄຈໃໝ່ໃນໝວດທີ່ຕິດຕາມ', th: 'งานวิจัยใหม่ในหมวดที่ติดตาม', en: 'New research in followed categories', vi: 'Nghiên cứu mới trong danh mục theo dõi' },
   notif_comment:      { lo: 'ມີຄຳເຫັນໃໝ່',              th: 'มีความคิดเห็นใหม่',        en: 'New comments',                       vi: 'Bình luận mới' },
   notif_system:       { lo: 'ແຈ້ງເຕືອນຈາກລະບົບ',        th: 'แจ้งเตือนจากระบบ',         en: 'System notifications',               vi: 'Thông báo hệ thống' },
+
+  // ── Delete Account ──
+  account_delete:      { lo: 'ລຶບບັນຊີ',                    th: 'ลบบัญชี',                  en: 'Delete account',              vi: 'Xóa tài khoản' },
+  account_delete_q:    { lo: 'ທ່ານຕ້ອງການລຶບບັນຊີບໍ?',        th: 'ต้องการลบบัญชีใช่ไหม?',     en: 'Delete your account?',        vi: 'Xóa tài khoản?' },
+  account_delete_warn: { lo: 'ການດຳເນີນການນີ້ບໍ່ສາມາດຍົກເລີກໄດ້ ຂໍ້ມູນທັງໝົດຂອງທ່ານຈະຖືກລຶບ', th: 'การดำเนินการนี้ไม่สามารถยกเลิกได้ ข้อมูลทั้งหมดจะถูกลบ', en: 'This cannot be undone. All your data will be deleted.', vi: 'Không thể hoàn tác. Tất cả dữ liệu sẽ bị xóa.' },
 } as const;
 
 export type TranslationKey = keyof typeof translations;
