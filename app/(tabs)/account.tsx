@@ -184,7 +184,9 @@ export default function AccountScreen() {
             {/* Rate the app */}
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => Linking.openURL('market://details?id=la.org.digitallibrary.mobile')}
+              onPress={() => Linking.openURL('market://details?id=la.org.digitallibrary.mobile').catch(() =>
+                Linking.openURL('https://play.google.com/store/apps/details?id=la.org.digitallibrary.mobile')
+              )}
             >
               <Ionicons name="star-outline" size={20} color={colors.primary} />
               <Text style={styles.menuText}>{t('settings_rate')}</Text>
@@ -585,7 +587,9 @@ export default function AccountScreen() {
           {/* Rate the app */}
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => Linking.openURL('market://details?id=la.org.digitallibrary.mobile')}
+            onPress={() => Linking.openURL('market://details?id=la.org.digitallibrary.mobile').catch(() =>
+              Linking.openURL('https://play.google.com/store/apps/details?id=la.org.digitallibrary.mobile')
+            )}
           >
             <Ionicons name="star-outline" size={20} color={colors.primary} />
             <Text style={styles.menuText}>{t('settings_rate')}</Text>
